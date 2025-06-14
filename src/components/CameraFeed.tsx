@@ -17,6 +17,9 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gestureDetector = useRef<GestureDetector>(new GestureDetector());
   const [isLoading, setIsLoading] = useState(true);
+  const photoGestureTimerRef = useRef<number | null>(null);
+  const clearGestureTimerRef = useRef<number | null>(null);
+  const GESTURE_HOLD_DURATION = 2000; // 2 seconds
 
   useImperativeHandle(ref, () => ({
     captureFrame: () => {
@@ -71,21 +74,18 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
       return distTipToWrist > distPipToWrist * 1.1;
     };
 
-    const detectPhotoCaptureGesture = (hand1: LandmarkList, hand2: LandmarkList): boolean => {
-      const hand1Pointing = isFingerExtended(hand1, 8, 6) && !isFingerExtended(hand1, 12, 10);
-      const hand2Pointing = isFingerExtended(hand2, 8, 6) && !isFingerExtended(hand2, 12, 10);
+    const isThumbUp = (landmarks: LandmarkList): boolean => {
+      const thumbIsExtended = isFingerExtended(landmarks, 4, 2);
+      const indexIsExtended = isFingerExtended(landmarks, 8, 6);
+      const middleIsExtended = isFingerExtended(landmarks, 12, 10);
+      const ringIsExtended = isFingerExtended(landmarks, 16, 14);
+      const pinkyIsExtended = isFingerExtended(landmarks, 20, 18);
 
-      if (hand1Pointing && hand2Pointing) {
-        const indexTip1 = hand1[8];
-        const indexTip2 = hand2[8];
-        if (indexTip1 && indexTip2) {
-          const distance = Math.hypot(indexTip1.x - indexTip2.x, indexTip1.y - indexTip2.y);
-          if (distance < 0.1) {
-            return true;
-          }
-        }
-      }
-      return false;
+      return thumbIsExtended && !indexIsExtended && !middleIsExtended && !ringIsExtended && !pinkyIsExtended;
+    };
+
+    const detectPhotoCaptureGesture = (hand1: LandmarkList, hand2: LandmarkList): boolean => {
+      return isThumbUp(hand1) && isThumbUp(hand2);
     };
 
     const detectCrossedHands = (hand1: LandmarkList, hand2: LandmarkList, handedness: Handedness[]): boolean => {
@@ -124,22 +124,43 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
           drawLandmarks(ctx, landmarks, { color: '#2563EB', lineWidth: 1, radius: 3 });
         }
 
-        if (results.multiHandLandmarks.length === 2 && results.multiHandedness) {
-          const hand1 = results.multiHandLandmarks[0];
-          const hand2 = results.multiHandLandmarks[1];
+        const twoHands = results.multiHandLandmarks.length === 2 && results.multiHandedness;
+        const isPhotoGesture = twoHands ? detectPhotoCaptureGesture(results.multiHandLandmarks[0], results.multiHandLandmarks[1]) : false;
+        const isClearGesture = twoHands ? detectCrossedHands(results.multiHandLandmarks[0], results.multiHandLandmarks[1], results.multiHandedness) : false;
 
-          if (detectCrossedHands(hand1, hand2, results.multiHandedness)) {
-            onClearGesture();
-            return;
-          }
-
-          if (detectPhotoCaptureGesture(hand1, hand2)) {
-            onPhotoCaptureGesture();
-            return;
-          }
+        // Photo gesture timer
+        if (isPhotoGesture) {
+            if (!photoGestureTimerRef.current) {
+                photoGestureTimerRef.current = window.setTimeout(() => {
+                    onPhotoCaptureGesture();
+                    photoGestureTimerRef.current = null;
+                }, GESTURE_HOLD_DURATION);
+            }
+        } else {
+            if (photoGestureTimerRef.current) {
+                clearTimeout(photoGestureTimerRef.current);
+                photoGestureTimerRef.current = null;
+            }
         }
 
-        if (results.multiHandLandmarks.length === 1) {
+        // Clear gesture timer
+        if (isClearGesture) {
+            if (!clearGestureTimerRef.current) {
+                clearGestureTimerRef.current = window.setTimeout(() => {
+                    onClearGesture();
+                    clearGestureTimerRef.current = null;
+                }, GESTURE_HOLD_DURATION);
+            }
+        } else {
+            if (clearGestureTimerRef.current) {
+                clearTimeout(clearGestureTimerRef.current);
+                clearGestureTimerRef.current = null;
+            }
+        }
+        
+        const noTwoHandGestureActive = !isPhotoGesture && !isClearGesture;
+
+        if (results.multiHandLandmarks.length === 1 && noTwoHandGestureActive) {
           const landmarks = results.multiHandLandmarks[0];
           if (isFingerExtended(landmarks, 8, 6) && !isFingerExtended(landmarks, 12, 10)) {
             isDrawingAllowed = true;
@@ -156,6 +177,15 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
               }
             }
           }
+        }
+      } else {
+        if (photoGestureTimerRef.current) {
+          clearTimeout(photoGestureTimerRef.current);
+          photoGestureTimerRef.current = null;
+        }
+        if (clearGestureTimerRef.current) {
+          clearTimeout(clearGestureTimerRef.current);
+          clearGestureTimerRef.current = null;
         }
       }
       
@@ -201,6 +231,8 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
 
     return () => {
       hands.close();
+      if (photoGestureTimerRef.current) clearTimeout(photoGestureTimerRef.current);
+      if (clearGestureTimerRef.current) clearTimeout(clearGestureTimerRef.current);
     };
   }, [onCircleDetected, isDetecting, onPhotoCaptureGesture, onClearGesture]);
 

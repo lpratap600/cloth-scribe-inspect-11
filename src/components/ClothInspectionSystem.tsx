@@ -5,7 +5,7 @@ import InspectionResults from './InspectionResults';
 import StatusPanel from './StatusPanel';
 import { processImage } from '@/utils/imageProcessor';
 import type { Circle } from '@/utils/gestureDetector';
-import { Camera, MousePointer2, XSquare } from 'lucide-react';
+import { ThumbsUp, MousePointer2, XSquare } from 'lucide-react';
 
 export interface CapturedImage {
   id: string;
@@ -143,12 +143,12 @@ const ClothInspectionSystem = () => {
             <p><span className="font-bold text-white">Circle Defect:</span><br />Use one index finger to draw a circle.</p>
           </div>
           <div className="flex items-center justify-center text-left gap-3 bg-gray-800 p-3 rounded-lg">
-            <Camera className="h-6 w-6 text-teal-400 flex-shrink-0" />
-            <p><span className="font-bold text-white">Take Photo:</span><br />Point both index fingers together.</p>
+            <ThumbsUp className="h-6 w-6 text-teal-400 flex-shrink-0" />
+            <p><span className="font-bold text-white">Take Photo:</span><br />Hold thumbs-up with both hands for 2s.</p>
           </div>
           <div className="flex items-center justify-center text-left gap-3 bg-gray-800 p-3 rounded-lg">
             <XSquare className="h-6 w-6 text-teal-400 flex-shrink-0" />
-            <p><span className="font-bold text-white">Clear Canvas:</span><br />Cross your hands.</p>
+            <p><span className="font-bold text-white">Clear Canvas:</span><br />Hold crossed hands for 2s.</p>
           </div>
         </div>
       </header>
