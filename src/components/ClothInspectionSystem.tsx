@@ -18,6 +18,7 @@ const ClothInspectionSystem = () => {
   const [isDetecting, setIsDetecting] = useState(true);
   const [status, setStatus] = useState('Ready to inspect. Draw a circle around a defect.');
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [gestureCooldown, setGestureCooldown] = useState(false);
 
   const cameraFeedRef = useRef<{
     captureFrame: () => string | null;
@@ -78,6 +79,49 @@ const ClothInspectionSystem = () => {
 
   }, [isDetecting]);
 
+  const handlePhotoCaptureGesture = useCallback(() => {
+    if (gestureCooldown || countdown !== null) return;
+
+    setGestureCooldown(true);
+    setStatus('Photo gesture detected! Capturing...');
+    
+    setTimeout(() => {
+      if (cameraFeedRef.current) {
+          const imageDataUrl = cameraFeedRef.current.captureFrame();
+          if (imageDataUrl) {
+              const newImage: CapturedImage = {
+                  id: `img-${Date.now()}`,
+                  src: imageDataUrl,
+                  timestamp: new Date().toLocaleTimeString(),
+                  defects: 0,
+              };
+              setCapturedImages(prev => [newImage, ...prev]);
+              setStatus('Photo captured. Ready for next inspection.');
+          } else {
+              setStatus('Failed to capture photo.');
+          }
+      }
+      
+      setTimeout(() => setGestureCooldown(false), 1000);
+    }, 500);
+  }, [gestureCooldown, countdown]);
+
+  const handleClearGesture = useCallback(() => {
+    if (gestureCooldown || countdown !== null) return;
+
+    setGestureCooldown(true);
+    setStatus('Clear gesture detected! Clearing drawing...');
+    
+    if (cameraFeedRef.current) {
+        cameraFeedRef.current.clearCanvas();
+    }
+    
+    setTimeout(() => {
+        setStatus('Drawing cleared. Ready to inspect.');
+        setGestureCooldown(false);
+    }, 1000);
+  }, [gestureCooldown, countdown]);
+
   const handleReset = () => {
     setCapturedImages([]);
     setStatus('System reset. Ready to inspect.');
@@ -92,7 +136,7 @@ const ClothInspectionSystem = () => {
     <div className="bg-gray-900 text-white min-h-screen flex flex-col p-4 font-sans">
       <header className="text-center mb-4">
         <h1 className="text-3xl font-bold text-teal-400">Smart Cloth Inspection System</h1>
-        <p className="text-gray-400">Use your index finger to circle defects on the fabric.</p>
+        <p className="text-gray-400">Use your index finger to circle defects on the fabric. Use two hands for special gestures.</p>
       </header>
       <div className="flex-grow flex flex-col md:flex-row gap-4">
         <div className="flex-1 flex flex-col gap-4">
@@ -101,6 +145,8 @@ const ClothInspectionSystem = () => {
               ref={cameraFeedRef}
               onCircleDetected={handleCircleDetected}
               isDetecting={isDetecting}
+              onPhotoCaptureGesture={handlePhotoCaptureGesture}
+              onClearGesture={handleClearGesture}
             />
             {countdown !== null && countdown > 0 && (
               <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
