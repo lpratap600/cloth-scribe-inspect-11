@@ -103,7 +103,7 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
       return isThumbUp(hand1) && isThumbUp(hand2);
     };
 
-    const detectCrossedHands = (hand1: LandmarkList, hand2: LandmarkList, handedness: Handedness[]): boolean => {
+    const detectCrossedArms = (hand1: LandmarkList, hand2: LandmarkList, handedness: Handedness[]): boolean => {
       if (handedness.length < 2 || !handedness[0].label || !handedness[1].label || handedness[0].label === handedness[1].label) {
         return false;
       }
@@ -115,10 +115,19 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
       const leftHandWrist = handedness[0].label === 'Left' ? wrist1 : wrist2;
       const rightHandWrist = handedness[0].label === 'Right' ? wrist1 : wrist2;
 
-      if (leftHandWrist.x < rightHandWrist.x && Math.abs(leftHandWrist.y - rightHandWrist.y) < 0.2) {
-        return true;
-      }
-      return false;
+      // For crossed arms, left hand is on right side of body and vice versa.
+      // In raw video coordinates: left hand x > right hand x.
+      const areCrossed = leftHandWrist.x > rightHandWrist.x;
+      
+      // Wrists should be a certain distance apart.
+      const horizontalDistance = Math.abs(leftHandWrist.x - rightHandWrist.x);
+      const areApart = horizontalDistance > 0.15;
+
+      // Vertical distance should not be too large. Relaxing this constraint.
+      const verticalDistance = Math.abs(leftHandWrist.y - rightHandWrist.y);
+      const areVerticallyClose = verticalDistance < 0.4;
+
+      return areCrossed && areApart && areVerticallyClose;
     };
 
     const onResults = (results: HandResults) => {
@@ -141,7 +150,7 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
 
         const twoHands = results.multiHandLandmarks.length === 2 && results.multiHandedness;
         const isPhotoGesture = twoHands ? detectPhotoCaptureGesture(results.multiHandLandmarks[0], results.multiHandLandmarks[1]) : false;
-        const isClearGesture = twoHands ? detectCrossedHands(results.multiHandLandmarks[0], results.multiHandLandmarks[1], results.multiHandedness) : false;
+        const isClearGesture = twoHands ? detectCrossedArms(results.multiHandLandmarks[0], results.multiHandLandmarks[1], results.multiHandedness) : false;
 
         // Photo gesture timer
         if (isPhotoGesture) {

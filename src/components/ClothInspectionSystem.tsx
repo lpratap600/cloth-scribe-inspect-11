@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useCallback } from 'react';
 import CameraFeed from './CameraFeed';
 import InspectionResults from './InspectionResults';
@@ -149,7 +148,7 @@ const ClothInspectionSystem = () => {
       <header className="text-center mb-4">
         <h1 className="text-3xl font-bold text-teal-400">Smart Cloth Inspection System</h1>
         <div className="text-gray-400 mt-4 max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-          <div className="flex items-center justify-center text-left gap-3 bg-gray-800 p-3 rounded-lg">
+          <div className="flex items-center justify-center text-left gap-3 bg-ray-800 p-3 rounded-lg">
             <MousePointer2 className="h-6 w-6 text-teal-400 flex-shrink-0" />
             <p><span className="font-bold text-white">Circle Defect:</span><br />Use one index finger to draw a circle.</p>
           </div>
@@ -159,7 +158,7 @@ const ClothInspectionSystem = () => {
           </div>
           <div className="flex items-center justify-center text-left gap-3 bg-gray-800 p-3 rounded-lg">
             <XSquare className="h-6 w-6 text-teal-400 flex-shrink-0" />
-            <p><span className="font-bold text-white">Clear Canvas:</span><br />Hold crossed hands for 2s.</p>
+            <p><span className="font-bold text-white">Clear Canvas:</span><br />Hold crossed arms for 2s.</p>
           </div>
         </div>
       </header>
