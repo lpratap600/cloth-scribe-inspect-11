@@ -118,13 +118,21 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
     };
 
     const isThumbUp = (landmarks: LandmarkList): boolean => {
-      const thumbIsExtended = isFingerExtended(landmarks, 4, 2);
+      const thumbTip = landmarks[4];
+      const thumbMcp = landmarks[2];
+
+      if (!thumbTip || !thumbMcp) return false;
+
+      // Thumb points up if tip is "higher" (lower y value) than its base joint.
+      const thumbIsPointingUp = thumbTip.y < thumbMcp.y;
+      
+      // All other fingers should be curled (not extended).
       const indexIsExtended = isFingerExtended(landmarks, 8, 6);
       const middleIsExtended = isFingerExtended(landmarks, 12, 10);
       const ringIsExtended = isFingerExtended(landmarks, 16, 14);
       const pinkyIsExtended = isFingerExtended(landmarks, 20, 18);
 
-      return thumbIsExtended && !indexIsExtended && !middleIsExtended && !ringIsExtended && !pinkyIsExtended;
+      return thumbIsPointingUp && !indexIsExtended && !middleIsExtended && !ringIsExtended && !pinkyIsExtended;
     };
 
     const detectPhotoCaptureGesture = (hand1: LandmarkList, hand2: LandmarkList): boolean => {
