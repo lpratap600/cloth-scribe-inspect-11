@@ -3,7 +3,7 @@ import { Hands, Results as HandResults, LandmarkList, Handedness } from '@mediap
 import { drawConnectors, drawLandmarks } from '@mediapipe/drawing_utils';
 import { HAND_CONNECTIONS } from '@mediapipe/hands';
 import GestureDetector, { Circle } from '@/utils/gestureDetector';
-import { XSquare } from 'lucide-react';
+import { ThumbsDown } from 'lucide-react';
 
 interface CameraFeedProps {
   onCircleDetected: (circle: Circle) => void;
@@ -21,7 +21,8 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
   const [showClearGestureIndicator, setShowClearGestureIndicator] = useState(false);
   const photoGestureTimerRef = useRef<number | null>(null);
   const clearGestureTimerRef = useRef<number | null>(null);
-  const GESTURE_HOLD_DURATION = 2000; // 2 seconds
+  const PHOTO_GESTURE_HOLD_DURATION = 2000; // 2 seconds
+  const CLEAR_GESTURE_HOLD_DURATION = 1000; // 1 second
 
   const onCircleDetectedRef = useRef(onCircleDetected);
   onCircleDetectedRef.current = onCircleDetected;
@@ -94,6 +95,28 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
       return distTipToWrist > distPipToWrist * 1.1;
     };
 
+    const isThumbsDown = (landmarks: LandmarkList): boolean => {
+      const thumbTip = landmarks[4];
+      const thumbMcp = landmarks[2]; // Metacarpophalangeal joint (base of thumb)
+
+      if (!thumbTip || !thumbMcp) return false;
+
+      // Thumb points down if tip is "lower" (higher y value) than its base joint.
+      const thumbIsPointingDown = thumbTip.y > thumbMcp.y;
+      
+      // All other fingers should be curled (not extended).
+      const indexIsExtended = isFingerExtended(landmarks, 8, 6);
+      const middleIsExtended = isFingerExtended(landmarks, 12, 10);
+      const ringIsExtended = isFingerExtended(landmarks, 16, 14);
+      const pinkyIsExtended = isFingerExtended(landmarks, 20, 18);
+
+      return thumbIsPointingDown && !indexIsExtended && !middleIsExtended && !ringIsExtended && !pinkyIsExtended;
+    };
+    
+    const detectThumbsDownGesture = (hand1: LandmarkList, hand2: LandmarkList): boolean => {
+      return isThumbsDown(hand1) && isThumbsDown(hand2);
+    };
+
     const isThumbUp = (landmarks: LandmarkList): boolean => {
       const thumbIsExtended = isFingerExtended(landmarks, 4, 2);
       const indexIsExtended = isFingerExtended(landmarks, 8, 6);
@@ -106,37 +129,6 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
 
     const detectPhotoCaptureGesture = (hand1: LandmarkList, hand2: LandmarkList): boolean => {
       return isThumbUp(hand1) && isThumbUp(hand2);
-    };
-
-    const detectCrossedArms = (hand1: LandmarkList, hand2: LandmarkList, handedness: Handedness[]): boolean => {
-      if (handedness.length < 2 || !handedness[0].label || !handedness[1].label || handedness[0].label === handedness[1].label) {
-        return false;
-      }
-
-      const wrist1 = hand1[0];
-      const wrist2 = hand2[0];
-      if (!wrist1 || !wrist2) return false;
-
-      let leftWrist, rightWrist;
-      if (handedness[0].label === 'Left') {
-        leftWrist = wrist1;
-        rightWrist = wrist2;
-      } else { // handedness[0].label must be 'Right'
-        leftWrist = wrist2;
-        rightWrist = wrist1;
-      }
-
-      // For crossed arms, left hand is on right side of body and vice versa.
-      // In raw video coordinates: left hand x > right hand x.
-      const areCrossed = leftWrist.x > rightWrist.x;
-      
-      const horizontalDistance = Math.abs(leftWrist.x - rightWrist.x);
-      const areApart = horizontalDistance > 0.15;
-
-      const verticalDistance = Math.abs(leftWrist.y - rightWrist.y);
-      const areVerticallyClose = verticalDistance < 0.4;
-
-      return areCrossed && areApart && areVerticallyClose;
     };
 
     const onResults = (results: HandResults) => {
@@ -157,9 +149,9 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
           drawLandmarks(ctx, landmarks, { color: '#2563EB', lineWidth: 1, radius: 3 });
         }
 
-        const twoHands = results.multiHandLandmarks.length === 2 && results.multiHandedness;
+        const twoHands = results.multiHandLandmarks.length === 2;
         const isPhotoGesture = twoHands ? detectPhotoCaptureGesture(results.multiHandLandmarks[0], results.multiHandLandmarks[1]) : false;
-        let isClearGesture = twoHands ? detectCrossedArms(results.multiHandLandmarks[0], results.multiHandLandmarks[1], results.multiHandedness) : false;
+        let isClearGesture = twoHands ? detectThumbsDownGesture(results.multiHandLandmarks[0], results.multiHandLandmarks[1]) : false;
 
         // Prioritize photo gesture over clear gesture if both are detected
         if (isPhotoGesture) {
@@ -174,7 +166,7 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
                 photoGestureTimerRef.current = window.setTimeout(() => {
                     onPhotoCaptureGestureRef.current();
                     photoGestureTimerRef.current = null;
-                }, GESTURE_HOLD_DURATION);
+                }, PHOTO_GESTURE_HOLD_DURATION);
             }
         } else {
             if (photoGestureTimerRef.current) {
@@ -189,7 +181,7 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
                 clearGestureTimerRef.current = window.setTimeout(() => {
                     onClearGestureRef.current();
                     clearGestureTimerRef.current = null;
-                }, GESTURE_HOLD_DURATION);
+                }, CLEAR_GESTURE_HOLD_DURATION);
             }
         } else {
             if (clearGestureTimerRef.current) {
@@ -295,7 +287,7 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
       {showClearGestureIndicator && (
         <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 pointer-events-none">
           <div className="text-center text-white p-4 bg-gray-900 bg-opacity-75 rounded-lg">
-            <XSquare className="h-16 w-16 mx-auto text-teal-400" />
+            <ThumbsDown className="h-16 w-16 mx-auto text-teal-400" />
             <p className="text-xl font-bold mt-2">Hold to Clear Canvas</p>
           </div>
         </div>
