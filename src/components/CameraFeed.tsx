@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useImperativeHandle, forwardRef, useState } from 'react';
-import { Hands, Results as HandResults } from '@mediapipe/hands';
+import { Hands, Results as HandResults, LandmarkList } from '@mediapipe/hands';
 import { drawConnectors, drawLandmarks } from '@mediapipe/drawing_utils';
 import { HAND_CONNECTIONS } from '@mediapipe/hands';
 import GestureDetector, { Circle } from '@/utils/gestureDetector';
@@ -55,6 +55,21 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting }: CameraFeedProp
       minTrackingConfidence: 0.5,
     });
 
+    const isIndexFingerExtended = (landmarks: LandmarkList) => {
+      const wrist = landmarks[0];
+      const indexPip = landmarks[6];
+      const indexTip = landmarks[8];
+
+      if (!wrist || !indexPip || !indexTip) return false;
+      
+      const distTipToWrist = Math.hypot(indexTip.x - wrist.x, indexTip.y - wrist.y);
+      const distPipToWrist = Math.hypot(indexPip.x - wrist.x, indexPip.y - wrist.y);
+      
+      // The tip of the finger should be further from the wrist than the middle joint (PIP).
+      // A small threshold is added for stability.
+      return distTipToWrist > distPipToWrist * 1.1;
+    };
+
     const onResults = (results: HandResults) => {
       const video = videoRef.current;
       const canvas = canvasRef.current;
@@ -65,27 +80,36 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting }: CameraFeedProp
       
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+      let isDrawingAllowed = false;
+
       if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
         const landmarks = results.multiHandLandmarks[0];
         drawConnectors(ctx, landmarks, HAND_CONNECTIONS, { color: '#0D9488', lineWidth: 2 });
         drawLandmarks(ctx, landmarks, { color: '#2563EB', lineWidth: 1, radius: 3 });
 
-        const indexFingerTip = landmarks[8];
-        if (indexFingerTip) {
-          const point = { x: indexFingerTip.x * canvas.width, y: indexFingerTip.y * canvas.height };
-          
-          if(isDetecting) {
-            gestureDetector.current.addPoint(point);
-            const circle = gestureDetector.current.detectCircle();
-            if (circle) {
-              onCircleDetected(circle);
+        if (isIndexFingerExtended(landmarks)) {
+          isDrawingAllowed = true;
+          const indexFingerTip = landmarks[8];
+          if (indexFingerTip) {
+            const point = { x: indexFingerTip.x * canvas.width, y: indexFingerTip.y * canvas.height };
+            
+            if(isDetecting) {
+              gestureDetector.current.addPoint(point);
+              const circle = gestureDetector.current.detectCircle();
+              if (circle) {
+                onCircleDetected(circle);
+              }
             }
           }
         }
       }
       
-      // The path is now drawn on every frame, so it doesn't disappear
-      // when hand tracking is briefly lost.
+      if (!isDrawingAllowed) {
+        // If hand is not visible or finger is not extended, clear the drawing path.
+        gestureDetector.current.clearPoints();
+      }
+      
+      // The path is drawn on every frame if points exist.
       const path = gestureDetector.current.getPoints();
       if(path.length > 1) {
           ctx.beginPath();
