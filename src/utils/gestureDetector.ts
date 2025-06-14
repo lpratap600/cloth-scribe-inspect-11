@@ -1,4 +1,3 @@
-
 export interface Point {
   x: number;
   y: number;
@@ -11,7 +10,7 @@ export interface Circle {
   points: Point[];
 }
 
-const CIRCLE_GESTURE_TIME_LIMIT = 3000; // 3 seconds to complete a circle
+const CIRCLE_GESTURE_TIME_LIMIT = 5000; // 5 seconds to complete a circle
 const MIN_POINTS_FOR_CIRCLE = 15; // Need at least 15 points
 const CIRCLE_CONFIDENCE_THRESHOLD = 0.5; // Lowered for easier detection
 
@@ -20,9 +19,6 @@ export default class GestureDetector {
 
   addPoint(point: { x: number; y: number }) {
     this.points.push({ ...point, timestamp: Date.now() });
-    if (this.points.length > 50) {
-      this.points.shift();
-    }
   }
 
   getPoints(): { x: number; y: number }[] {

@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useImperativeHandle, forwardRef, useState } from 'react';
 import { Hands, Results as HandResults } from '@mediapipe/hands';
 import { drawConnectors, drawLandmarks } from '@mediapipe/drawing_utils';
@@ -83,22 +82,20 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting }: CameraFeedProp
             }
           }
         }
-        
-        const path = gestureDetector.current.getPoints();
-        if(path.length > 1) {
-            ctx.beginPath();
-            ctx.moveTo(path[0].x, path[0].y);
-            for(let i=1; i<path.length; i++) {
-                ctx.lineTo(path[i].x, path[i].y);
-            }
-            ctx.strokeStyle = '#EA580C';
-            ctx.lineWidth = 4;
-            ctx.stroke();
-        }
-      } else {
-        if (isDetecting) {
-            gestureDetector.current.clearPoints();
-        }
+      }
+      
+      // The path is now drawn on every frame, so it doesn't disappear
+      // when hand tracking is briefly lost.
+      const path = gestureDetector.current.getPoints();
+      if(path.length > 1) {
+          ctx.beginPath();
+          ctx.moveTo(path[0].x, path[0].y);
+          for(let i=1; i<path.length; i++) {
+              ctx.lineTo(path[i].x, path[i].y);
+          }
+          ctx.strokeStyle = '#EA580C';
+          ctx.lineWidth = 4;
+          ctx.stroke();
       }
     };
 
