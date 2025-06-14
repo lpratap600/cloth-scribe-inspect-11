@@ -13,20 +13,25 @@ export function processImage(videoElement: HTMLVideoElement, circles: Circle[]):
     return '';
   }
 
-  // Draw the raw (non-mirrored) video frame onto the canvas.
-  ctx.drawImage(videoElement, 0, 0, videoWidth, videoHeight);
+  // Draw the mirrored video frame to match the live preview
+  ctx.save();
+  ctx.scale(-1, 1);
+  ctx.drawImage(videoElement, -videoWidth, 0, videoWidth, videoHeight);
+  ctx.restore();
 
-  // The circles are already in the coordinate system of the raw video frame,
-  // so we can draw them directly without any transformation.
+  // Draw the circles on the mirrored image. We need to mirror their x-coordinates.
   circles.forEach((circle, index) => {
+    const mirroredCircleX = videoWidth - circle.center.x;
+
     ctx.beginPath();
-    ctx.arc(circle.center.x, circle.center.y, circle.radius, 0, 2 * Math.PI, false);
+    ctx.arc(mirroredCircleX, circle.center.y, circle.radius, 0, 2 * Math.PI, false);
     ctx.lineWidth = 5;
     ctx.strokeStyle = '#ef4444';
     ctx.stroke();
 
     const label = `${index + 1}`;
-    const labelX = circle.center.x + circle.radius * 0.7;
+    // The label position also needs to be mirrored to appear correctly.
+    const labelX = mirroredCircleX - circle.radius * 0.7;
     const labelY = circle.center.y - circle.radius * 0.7;
     ctx.font = 'bold 32px Arial';
     ctx.fillStyle = '#ef4444';
