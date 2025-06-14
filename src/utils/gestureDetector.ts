@@ -1,3 +1,4 @@
+
 export interface Point {
   x: number;
   y: number;
@@ -8,6 +9,13 @@ export interface Circle {
   center: { x: number; y: number };
   radius: number;
   points: Point[];
+}
+
+interface BoundingBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 const CIRCLE_GESTURE_TIME_LIMIT = 5000; // 5 seconds to complete a circle
@@ -35,20 +43,11 @@ export default class GestureDetector {
       return null;
     }
 
-    const startPoint = this.points[0];
-    const endPoint = this.points[this.points.length - 1];
-    
-    const distance = Math.hypot(endPoint.x - startPoint.x, endPoint.y - startPoint.y);
     const pathBoundingBox = this.calculateBoundingBox(this.points);
-    const pathDiameter = Math.max(pathBoundingBox.width, pathBoundingBox.height);
-    
-    if (distance > pathDiameter * 0.4) {
-        return null;
-    }
-
-    const confidence = this.isCircular(this.points);
+    const confidence = this.isCircular(this.points, pathBoundingBox);
 
     if (confidence > CIRCLE_CONFIDENCE_THRESHOLD) {
+      const pathDiameter = Math.max(pathBoundingBox.width, pathBoundingBox.height);
       const center = {
         x: pathBoundingBox.x + pathBoundingBox.width / 2,
         y: pathBoundingBox.y + pathBoundingBox.height / 2,
@@ -65,7 +64,7 @@ export default class GestureDetector {
     this.points = this.points.filter(p => now - p.timestamp < CIRCLE_GESTURE_TIME_LIMIT);
   }
   
-  private calculateBoundingBox(points: Point[]) {
+  private calculateBoundingBox(points: Point[]): BoundingBox {
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const p of points) {
       minX = Math.min(minX, p.x);
@@ -76,11 +75,10 @@ export default class GestureDetector {
     return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
   }
 
-  private isCircular(points: Point[]): number {
+  private isCircular(points: Point[], boundingBox: BoundingBox): number {
     const n = points.length;
     if (n < 3) return 0;
 
-    const boundingBox = this.calculateBoundingBox(points);
     const center = {
       x: boundingBox.x + boundingBox.width / 2,
       y: boundingBox.y + boundingBox.height / 2,
@@ -99,9 +97,10 @@ export default class GestureDetector {
     
     const confidence = Math.max(0, 1 - (avgDistanceVariation / radius));
     
-    const aspectRatio = boundingBox.width / boundingBox.height;
+    const aspectRatio = boundingBox.width === 0 || boundingBox.height === 0 ? 1 : boundingBox.width / boundingBox.height;
     const aspectRatioPenalty = Math.min(aspectRatio, 1/aspectRatio);
 
     return confidence * aspectRatioPenalty;
   }
 }
+
