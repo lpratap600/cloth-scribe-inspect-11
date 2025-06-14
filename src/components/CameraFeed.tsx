@@ -1,22 +1,24 @@
-
 import React, { useRef, useEffect, useImperativeHandle, forwardRef, useState } from 'react';
 import { Hands, Results as HandResults, LandmarkList, Handedness } from '@mediapipe/hands';
 import { drawConnectors, drawLandmarks } from '@mediapipe/drawing_utils';
 import { HAND_CONNECTIONS } from '@mediapipe/hands';
 import GestureDetector, { Circle } from '@/utils/gestureDetector';
+import { XSquare } from 'lucide-react';
 
 interface CameraFeedProps {
   onCircleDetected: (circle: Circle) => void;
   isDetecting: boolean;
   onPhotoCaptureGesture: () => void;
   onClearGesture: () => void;
+  isBusy: boolean;
 }
 
-const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGesture, onClearGesture }: CameraFeedProps, ref) => {
+const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGesture, onClearGesture, isBusy }: CameraFeedProps, ref) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gestureDetector = useRef<GestureDetector>(new GestureDetector());
   const [isLoading, setIsLoading] = useState(true);
+  const [showClearGestureIndicator, setShowClearGestureIndicator] = useState(false);
   const photoGestureTimerRef = useRef<number | null>(null);
   const clearGestureTimerRef = useRef<number | null>(null);
   const GESTURE_HOLD_DURATION = 2000; // 2 seconds
@@ -32,6 +34,9 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
   
   const isDetectingRef = useRef(isDetecting);
   isDetectingRef.current = isDetecting;
+
+  const isBusyRef = useRef(isBusy);
+  isBusyRef.current = isBusy;
 
   useImperativeHandle(ref, () => ({
     captureFrame: () => {
@@ -112,19 +117,23 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
       const wrist2 = hand2[0];
       if (!wrist1 || !wrist2) return false;
 
-      const leftHandWrist = handedness[0].label === 'Left' ? wrist1 : wrist2;
-      const rightHandWrist = handedness[0].label === 'Right' ? wrist1 : wrist2;
+      let leftWrist, rightWrist;
+      if (handedness[0].label === 'Left') {
+        leftWrist = wrist1;
+        rightWrist = wrist2;
+      } else { // handedness[0].label must be 'Right'
+        leftWrist = wrist2;
+        rightWrist = wrist1;
+      }
 
       // For crossed arms, left hand is on right side of body and vice versa.
       // In raw video coordinates: left hand x > right hand x.
-      const areCrossed = leftHandWrist.x > rightHandWrist.x;
+      const areCrossed = leftWrist.x > rightWrist.x;
       
-      // Wrists should be a certain distance apart.
-      const horizontalDistance = Math.abs(leftHandWrist.x - rightHandWrist.x);
+      const horizontalDistance = Math.abs(leftWrist.x - rightWrist.x);
       const areApart = horizontalDistance > 0.15;
 
-      // Vertical distance should not be too large. Relaxing this constraint.
-      const verticalDistance = Math.abs(leftHandWrist.y - rightHandWrist.y);
+      const verticalDistance = Math.abs(leftWrist.y - rightWrist.y);
       const areVerticallyClose = verticalDistance < 0.4;
 
       return areCrossed && areApart && areVerticallyClose;
@@ -150,10 +159,17 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
 
         const twoHands = results.multiHandLandmarks.length === 2 && results.multiHandedness;
         const isPhotoGesture = twoHands ? detectPhotoCaptureGesture(results.multiHandLandmarks[0], results.multiHandLandmarks[1]) : false;
-        const isClearGesture = twoHands ? detectCrossedArms(results.multiHandLandmarks[0], results.multiHandLandmarks[1], results.multiHandedness) : false;
+        let isClearGesture = twoHands ? detectCrossedArms(results.multiHandLandmarks[0], results.multiHandLandmarks[1], results.multiHandedness) : false;
+
+        // Prioritize photo gesture over clear gesture if both are detected
+        if (isPhotoGesture) {
+            isClearGesture = false;
+        }
+
+        setShowClearGestureIndicator(isClearGesture && !isBusyRef.current);
 
         // Photo gesture timer
-        if (isPhotoGesture) {
+        if (isPhotoGesture && !isBusyRef.current) {
             if (!photoGestureTimerRef.current) {
                 photoGestureTimerRef.current = window.setTimeout(() => {
                     onPhotoCaptureGestureRef.current();
@@ -168,7 +184,7 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
         }
 
         // Clear gesture timer
-        if (isClearGesture) {
+        if (isClearGesture && !isBusyRef.current) {
             if (!clearGestureTimerRef.current) {
                 clearGestureTimerRef.current = window.setTimeout(() => {
                     onClearGestureRef.current();
@@ -211,6 +227,7 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
           clearTimeout(clearGestureTimerRef.current);
           clearGestureTimerRef.current = null;
         }
+        setShowClearGestureIndicator(false);
       }
       
       // The logic to clear points when drawing was not allowed has been removed
@@ -275,6 +292,14 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
       {isLoading && <div className="absolute inset-0 flex items-center justify-center bg-black"><p>Starting camera...</p></div>}
       <video ref={videoRef} className="w-full h-full object-cover -scale-x-100" playsInline />
       <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-full -scale-x-100" width="1280" height="720" />
+      {showClearGestureIndicator && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 pointer-events-none">
+          <div className="text-center text-white p-4 bg-gray-900 bg-opacity-75 rounded-lg">
+            <XSquare className="h-16 w-16 mx-auto text-teal-400" />
+            <p className="text-xl font-bold mt-2">Hold to Clear Canvas</p>
+          </div>
+        </div>
+      )}
     </>
   );
 });

@@ -171,6 +171,7 @@ const ClothInspectionSystem = () => {
               isDetecting={isDetecting}
               onPhotoCaptureGesture={handlePhotoCaptureGesture}
               onClearGesture={handleClearGesture}
+              isBusy={countdown !== null}
             />
             {countdown !== null && countdown > 0 && (
               <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
