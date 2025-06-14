@@ -134,7 +134,7 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting }: CameraFeedProp
     <>
       {isLoading && <div className="absolute inset-0 flex items-center justify-center bg-black"><p>Starting camera...</p></div>}
       <video ref={videoRef} className="w-full h-full object-cover -scale-x-100" playsInline />
-      <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-full" width="1280" height="720" />
+      <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-full -scale-x-100" width="1280" height="720" />
     </>
   );
 });
