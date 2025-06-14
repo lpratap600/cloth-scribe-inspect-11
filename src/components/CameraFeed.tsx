@@ -1,3 +1,4 @@
+
 import React, { useRef, useImperativeHandle, forwardRef, useState, useCallback, useEffect } from 'react';
 import { Results as HandResults } from '@mediapipe/hands';
 import GestureDetector, { Circle } from '@/utils/gestureDetector';
@@ -119,7 +120,7 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
               pointHoldTimerRef.current = window.setTimeout(() => {
                 const heldCircle: Circle = {
                   center: { x: pointingPosition.x, y: pointingPosition.y },
-                  radius: 40, // A fixed radius for the hold gesture
+                  radius: 60, // A fixed radius for the hold gesture
                   points: [] 
                 };
                 onCircleDetectedRef.current(heldCircle);
