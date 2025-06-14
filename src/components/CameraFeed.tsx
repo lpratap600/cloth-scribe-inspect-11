@@ -120,7 +120,7 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
               pointHoldTimerRef.current = window.setTimeout(() => {
                 const heldCircle: Circle = {
                   center: { x: pointingPosition.x, y: pointingPosition.y },
-                  radius: 80, // A fixed radius for the hold gesture
+                  radius: 120, // A fixed radius for the hold gesture
                   points: [] 
                 };
                 onCircleDetectedRef.current(heldCircle);
