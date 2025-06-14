@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, useImperativeHandle, forwardRef, useState } from 'react';
 import { Hands, Results as HandResults, LandmarkList, Handedness } from '@mediapipe/hands';
 import { drawConnectors, drawLandmarks } from '@mediapipe/drawing_utils';
@@ -19,6 +20,18 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
   const photoGestureTimerRef = useRef<number | null>(null);
   const clearGestureTimerRef = useRef<number | null>(null);
   const GESTURE_HOLD_DURATION = 2000; // 2 seconds
+
+  const onCircleDetectedRef = useRef(onCircleDetected);
+  onCircleDetectedRef.current = onCircleDetected;
+  
+  const onPhotoCaptureGestureRef = useRef(onPhotoCaptureGesture);
+  onPhotoCaptureGestureRef.current = onPhotoCaptureGesture;
+
+  const onClearGestureRef = useRef(onClearGesture);
+  onClearGestureRef.current = onClearGesture;
+  
+  const isDetectingRef = useRef(isDetecting);
+  isDetectingRef.current = isDetecting;
 
   useImperativeHandle(ref, () => ({
     captureFrame: () => {
@@ -134,7 +147,7 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
         if (isPhotoGesture) {
             if (!photoGestureTimerRef.current) {
                 photoGestureTimerRef.current = window.setTimeout(() => {
-                    onPhotoCaptureGesture();
+                    onPhotoCaptureGestureRef.current();
                     photoGestureTimerRef.current = null;
                 }, GESTURE_HOLD_DURATION);
             }
@@ -149,7 +162,7 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
         if (isClearGesture) {
             if (!clearGestureTimerRef.current) {
                 clearGestureTimerRef.current = window.setTimeout(() => {
-                    onClearGesture();
+                    onClearGestureRef.current();
                     clearGestureTimerRef.current = null;
                 }, GESTURE_HOLD_DURATION);
             }
@@ -170,11 +183,11 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
             if (indexFingerTip) {
               const point = { x: indexFingerTip.x * canvas.width, y: indexFingerTip.y * canvas.height };
               
-              if (isDetecting) {
+              if (isDetectingRef.current) {
                 gestureDetector.current.addPoint(point);
                 const circle = gestureDetector.current.detectCircle();
                 if (circle) {
-                  onCircleDetected(circle);
+                  onCircleDetectedRef.current(circle);
                 }
               }
             }
@@ -246,7 +259,7 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
         stream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [onCircleDetected, isDetecting, onPhotoCaptureGesture, onClearGesture]);
+  }, []);
 
   return (
     <>
