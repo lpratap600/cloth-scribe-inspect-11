@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useImperativeHandle, forwardRef, useState } from 'react';
 import { Hands, Results as HandResults, LandmarkList, Handedness } from '@mediapipe/hands';
 import { drawConnectors, drawLandmarks } from '@mediapipe/drawing_utils';
@@ -50,6 +49,9 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
   }));
 
   useEffect(() => {
+    let isComponentMounted = true;
+    let animationFrameId: number;
+
     const hands = new Hands({
       locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
     });
@@ -189,9 +191,8 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
         }
       }
       
-      if (!isDrawingAllowed) {
-        gestureDetector.current.clearPoints();
-      }
+      // The logic to clear points when drawing was not allowed has been removed
+      // to prevent the path from disappearing unexpectedly.
       
       const path = gestureDetector.current.getPoints();
       if(path.length > 1) {
@@ -208,31 +209,42 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
 
     hands.onResults(onResults);
 
-    if (videoRef.current) {
-      const camera = {
-        onFrame: async () => {
-          if (videoRef.current) {
-            await hands.send({ image: videoRef.current });
-          }
-          requestAnimationFrame(camera.onFrame);
-        },
-      };
+    const onFrame = async () => {
+      if (videoRef.current && isComponentMounted) {
+        await hands.send({ image: videoRef.current });
+      }
+      if (isComponentMounted) {
+        animationFrameId = requestAnimationFrame(onFrame);
+      }
+    };
 
+    if (videoRef.current) {
       navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } })
         .then((stream) => {
-          videoRef.current!.srcObject = stream;
-          videoRef.current!.onloadedmetadata = () => {
+          if (!isComponentMounted || !videoRef.current) {
+            stream.getTracks().forEach(track => track.stop());
+            return;
+          };
+          videoRef.current.srcObject = stream;
+          videoRef.current.onloadedmetadata = () => {
+            if (!isComponentMounted) return;
             setIsLoading(false);
             videoRef.current!.play();
-            requestAnimationFrame(camera.onFrame);
+            animationFrameId = requestAnimationFrame(onFrame);
           };
         });
     }
 
     return () => {
+      isComponentMounted = false;
+      cancelAnimationFrame(animationFrameId);
       hands.close();
       if (photoGestureTimerRef.current) clearTimeout(photoGestureTimerRef.current);
       if (clearGestureTimerRef.current) clearTimeout(clearGestureTimerRef.current);
+      if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+      }
     };
   }, [onCircleDetected, isDetecting, onPhotoCaptureGesture, onClearGesture]);
 
