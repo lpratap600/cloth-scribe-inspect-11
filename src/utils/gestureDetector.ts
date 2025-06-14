@@ -19,7 +19,7 @@ interface BoundingBox {
 }
 
 const CIRCLE_GESTURE_TIME_LIMIT = 5000; // 5 seconds to complete a circle
-const MIN_POINTS_FOR_CIRCLE = 15; // Need at least 15 points
+const MIN_POINTS_FOR_CIRCLE = 25; // Require more points for a longer arc
 const CIRCLE_CONFIDENCE_THRESHOLD = 0.5; // Lowered for easier detection
 const MIN_CIRCLE_DIAMETER = 50; // Minimum size for a circle to be considered intentional
 
