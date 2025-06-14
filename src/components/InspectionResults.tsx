@@ -3,12 +3,16 @@ import React from 'react';
 import type { CapturedImage } from './ClothInspectionSystem';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button } from '@/components/ui/button';
+import { Trash2 } from 'lucide-react';
 
 interface InspectionResultsProps {
   capturedImages: CapturedImage[];
+  onImageSelect: (image: CapturedImage) => void;
+  onImageDelete: (id: string) => void;
 }
 
-const InspectionResults = ({ capturedImages }: InspectionResultsProps) => {
+const InspectionResults = ({ capturedImages, onImageSelect, onImageDelete }: InspectionResultsProps) => {
   return (
     <Card className="h-full flex flex-col bg-gray-800 border-gray-700">
       <CardHeader>
@@ -24,10 +28,19 @@ const InspectionResults = ({ capturedImages }: InspectionResultsProps) => {
             <div className="space-y-4">
               {capturedImages.map((image) => (
                 <div key={image.id} className="bg-gray-700 p-2 rounded-lg shadow">
-                  <img src={image.src} alt="Captured inspection" className="rounded" />
-                  <div className="text-xs text-gray-400 mt-2 flex justify-between">
+                  <img src={image.src} alt="Captured inspection" className="rounded cursor-pointer" onClick={() => onImageSelect(image)} />
+                  <div className="text-xs text-gray-400 mt-2 flex justify-between items-center">
                     <span>{image.timestamp}</span>
                     <span>{image.defects} defect(s)</span>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="text-red-500 hover:text-red-400 h-6 w-6" 
+                      onClick={() => onImageDelete(image.id)}
+                      aria-label="Delete image"
+                    >
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               ))}

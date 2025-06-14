@@ -5,6 +5,12 @@ import StatusPanel from './StatusPanel';
 import { processImage } from '@/utils/imageProcessor';
 import type { Circle } from '@/utils/gestureDetector';
 import { ThumbsUp, MousePointer2, ThumbsDown } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export interface CapturedImage {
   id: string;
@@ -19,6 +25,7 @@ const ClothInspectionSystem = () => {
   const [status, setStatus] = useState('Ready to inspect. Draw a circle around a defect.');
   const [countdown, setCountdown] = useState<number | null>(null);
   const [gestureCooldown, setGestureCooldown] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<CapturedImage | null>(null);
 
   const cameraFeedRef = useRef<{
     captureFrame: () => string | null;
@@ -132,6 +139,15 @@ const ClothInspectionSystem = () => {
     }, 1000);
   }, [gestureCooldown, countdown]);
 
+  const handleImageSelect = (image: CapturedImage) => {
+    setSelectedImage(image);
+  };
+
+  const handleImageDelete = (id: string) => {
+    setCapturedImages(prev => prev.filter(image => image.id !== id));
+    setStatus('Image deleted.');
+  };
+
   const handleReset = () => {
     setCapturedImages([]);
     setStatus('System reset. Ready to inspect.');
@@ -181,9 +197,24 @@ const ClothInspectionSystem = () => {
           <StatusPanel status={status} onReset={handleReset} />
         </div>
         <div className="w-full md:w-96">
-          <InspectionResults capturedImages={capturedImages} />
+          <InspectionResults
+            capturedImages={capturedImages}
+            onImageSelect={handleImageSelect}
+            onImageDelete={handleImageDelete}
+          />
         </div>
       </div>
+
+      {selectedImage && (
+        <Dialog open={!!selectedImage} onOpenChange={(isOpen) => !isOpen && setSelectedImage(null)}>
+          <DialogContent className="max-w-4xl bg-gray-800 border-gray-700 text-white">
+            <DialogHeader>
+              <DialogTitle className="text-teal-400">Image Preview</DialogTitle>
+            </DialogHeader>
+            <img src={selectedImage.src} alt="Full screen inspection" className="max-w-full max-h-[80vh] mx-auto rounded-lg mt-4" />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };
