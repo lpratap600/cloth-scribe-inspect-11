@@ -1,4 +1,3 @@
-
 import React, { useRef, useImperativeHandle, forwardRef, useState, useCallback, useEffect } from 'react';
 import { Results as HandResults } from '@mediapipe/hands';
 import GestureDetector, { Circle } from '@/utils/gestureDetector';
@@ -17,15 +16,19 @@ interface CameraFeedProps {
 
 const PHOTO_GESTURE_HOLD_DURATION = 2000; // 2 seconds
 const CLEAR_GESTURE_HOLD_DURATION = 1000; // 1 second
+const POINT_HOLD_DURATION = 1000; // 1 second to trigger capture
+const POINT_HOLD_RADIUS = 15; // Finger must stay within a 15px radius
 
 const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGesture, onClearGesture, isBusy }: CameraFeedProps, ref) => {
   const [handResults, setHandResults] = useState<HandResults | null>(null);
   const [drawingPath, setDrawingPath] = useState<{x: number, y: number}[]>([]);
   const gestureDetector = useRef<GestureDetector>(new GestureDetector());
   const [showClearGestureIndicator, setShowClearGestureIndicator] = useState(false);
+  const [pointingPosition, setPointingPosition] = useState<{x: number, y: number, timestamp: number} | null>(null);
   
   const photoGestureTimerRef = useRef<number | null>(null);
   const clearGestureTimerRef = useRef<number | null>(null);
+  const pointHoldTimerRef = useRef<number | null>(null);
   
   const onCircleDetectedRef = useRef(onCircleDetected);
   onCircleDetectedRef.current = onCircleDetected;
@@ -93,31 +96,69 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
 
       if (results.multiHandLandmarks.length === 1 && noTwoHandGestureActive) {
         const landmarks = results.multiHandLandmarks[0];
-        if (isFingerExtended(landmarks, 8, 6) && !isFingerExtended(landmarks, 12, 10)) {
+        const isPointing = isFingerExtended(landmarks, 8, 6) && !isFingerExtended(landmarks, 12, 10);
+        
+        if (isPointing && isDetectingRef.current) {
           const indexFingerTip = landmarks[8];
-          if (indexFingerTip) {
-            const point = { x: indexFingerTip.x * canvas.width, y: indexFingerTip.y * canvas.height };
-            
-            if (isDetectingRef.current) {
-              gestureDetector.current.addPoint(point);
-              const circle = gestureDetector.current.detectCircle();
-              if (circle) {
-                onCircleDetectedRef.current(circle);
-              }
-            }
+          const point = { x: indexFingerTip.x * canvas.width, y: indexFingerTip.y * canvas.height };
+          
+          // 1. Check for drawn circle first
+          gestureDetector.current.addPoint(point);
+          const drawnCircle = gestureDetector.current.detectCircle();
+          if (drawnCircle) {
+            onCircleDetectedRef.current(drawnCircle);
+            if (pointHoldTimerRef.current) clearTimeout(pointHoldTimerRef.current);
+            pointHoldTimerRef.current = null;
+            setPointingPosition(null);
+            return;
           }
+
+          // 2. If no drawn circle, check for hold gesture
+          if (pointingPosition && Math.hypot(point.x - pointingPosition.x, point.y - pointingPosition.y) < POINT_HOLD_RADIUS) {
+            if (!pointHoldTimerRef.current) {
+              pointHoldTimerRef.current = window.setTimeout(() => {
+                const heldCircle: Circle = {
+                  center: { x: pointingPosition.x, y: pointingPosition.y },
+                  radius: 40, // A fixed radius for the hold gesture
+                  points: [] 
+                };
+                onCircleDetectedRef.current(heldCircle);
+                pointHoldTimerRef.current = null;
+                setPointingPosition(null);
+              }, POINT_HOLD_DURATION);
+            }
+          } else {
+            // Finger moved, so reset hold timer and update position
+            if (pointHoldTimerRef.current) clearTimeout(pointHoldTimerRef.current);
+            pointHoldTimerRef.current = null;
+            setPointingPosition({ ...point, timestamp: Date.now() });
+          }
+        } else {
+            // Not pointing or not detecting, so reset hold state
+            if (pointHoldTimerRef.current) clearTimeout(pointHoldTimerRef.current);
+            pointHoldTimerRef.current = null;
+            setPointingPosition(null);
         }
+      } else if (results.multiHandLandmarks.length !== 1) {
+          // Not one hand, so reset hold state
+          if (pointHoldTimerRef.current) clearTimeout(pointHoldTimerRef.current);
+          pointHoldTimerRef.current = null;
+          setPointingPosition(null);
       }
     } else {
+      // No hands detected, clear all timers
       if (photoGestureTimerRef.current) clearTimeout(photoGestureTimerRef.current);
       if (clearGestureTimerRef.current) clearTimeout(clearGestureTimerRef.current);
+      if (pointHoldTimerRef.current) clearTimeout(pointHoldTimerRef.current);
       photoGestureTimerRef.current = null;
       clearGestureTimerRef.current = null;
+      pointHoldTimerRef.current = null;
       setShowClearGestureIndicator(false);
+      setPointingPosition(null);
     }
     
     setDrawingPath([...gestureDetector.current.getPoints()]);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pointingPosition]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { videoRef, isLoading } = useHandTracking({ onResults: handleHandResults });
 
@@ -153,6 +194,7 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
     return () => {
       if (photoGestureTimerRef.current) clearTimeout(photoGestureTimerRef.current);
       if (clearGestureTimerRef.current) clearTimeout(clearGestureTimerRef.current);
+      if (pointHoldTimerRef.current) clearTimeout(pointHoldTimerRef.current);
     };
   }, []);
 

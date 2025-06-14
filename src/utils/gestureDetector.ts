@@ -53,7 +53,16 @@ export default class GestureDetector {
 
     const confidence = this.isCircular(this.points, pathBoundingBox);
 
-    if (confidence > CIRCLE_CONFIDENCE_THRESHOLD) {
+    // Check if the shape is "closed" by comparing start and end points.
+    const startPoint = this.points[0];
+    const endPoint = this.points[this.points.length - 1];
+    const closingDistance = Math.hypot(endPoint.x - startPoint.x, endPoint.y - startPoint.y);
+    const avgDimension = (pathBoundingBox.width + pathBoundingBox.height) / 2;
+    // Be more lenient if it's a closed loop.
+    const isClosedLoop = closingDistance < avgDimension * 0.4;
+    const requiredConfidence = isClosedLoop ? CIRCLE_CONFIDENCE_THRESHOLD * 0.8 : CIRCLE_CONFIDENCE_THRESHOLD;
+
+    if (confidence > requiredConfidence) {
       const pathDiameter = Math.max(pathBoundingBox.width, pathBoundingBox.height);
       const center = {
         x: pathBoundingBox.x + pathBoundingBox.width / 2,
