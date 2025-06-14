@@ -5,6 +5,7 @@ import InspectionResults from './InspectionResults';
 import StatusPanel from './StatusPanel';
 import { processImage } from '@/utils/imageProcessor';
 import type { Circle } from '@/utils/gestureDetector';
+import { Camera, MousePointer2, XSquare } from 'lucide-react';
 
 export interface CapturedImage {
   id: string;
@@ -136,7 +137,20 @@ const ClothInspectionSystem = () => {
     <div className="bg-gray-900 text-white min-h-screen flex flex-col p-4 font-sans">
       <header className="text-center mb-4">
         <h1 className="text-3xl font-bold text-teal-400">Smart Cloth Inspection System</h1>
-        <p className="text-gray-400">Use your index finger to circle defects on the fabric. Use two hands for special gestures.</p>
+        <div className="text-gray-400 mt-4 max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div className="flex items-center justify-center text-left gap-3 bg-gray-800 p-3 rounded-lg">
+            <MousePointer2 className="h-6 w-6 text-teal-400 flex-shrink-0" />
+            <p><span className="font-bold text-white">Circle Defect:</span><br />Use one index finger to draw a circle.</p>
+          </div>
+          <div className="flex items-center justify-center text-left gap-3 bg-gray-800 p-3 rounded-lg">
+            <Camera className="h-6 w-6 text-teal-400 flex-shrink-0" />
+            <p><span className="font-bold text-white">Take Photo:</span><br />Point both index fingers together.</p>
+          </div>
+          <div className="flex items-center justify-center text-left gap-3 bg-gray-800 p-3 rounded-lg">
+            <XSquare className="h-6 w-6 text-teal-400 flex-shrink-0" />
+            <p><span className="font-bold text-white">Clear Canvas:</span><br />Cross your hands.</p>
+          </div>
+        </div>
       </header>
       <div className="flex-grow flex flex-col md:flex-row gap-4">
         <div className="flex-1 flex flex-col gap-4">
