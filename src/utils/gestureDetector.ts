@@ -21,6 +21,7 @@ interface BoundingBox {
 const CIRCLE_GESTURE_TIME_LIMIT = 5000; // 5 seconds to complete a circle
 const MIN_POINTS_FOR_CIRCLE = 15; // Need at least 15 points
 const CIRCLE_CONFIDENCE_THRESHOLD = 0.5; // Lowered for easier detection
+const MIN_CIRCLE_DIAMETER = 50; // Minimum size for a circle to be considered intentional
 
 export default class GestureDetector {
   private points: Point[] = [];
@@ -44,6 +45,12 @@ export default class GestureDetector {
     }
 
     const pathBoundingBox = this.calculateBoundingBox(this.points);
+
+    // Filter out gestures that are too small to be intentional
+    if (pathBoundingBox.width < MIN_CIRCLE_DIAMETER || pathBoundingBox.height < MIN_CIRCLE_DIAMETER) {
+      return null;
+    }
+
     const confidence = this.isCircular(this.points, pathBoundingBox);
 
     if (confidence > CIRCLE_CONFIDENCE_THRESHOLD) {
@@ -103,4 +110,3 @@ export default class GestureDetector {
     return confidence * aspectRatioPenalty;
   }
 }
-
