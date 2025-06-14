@@ -84,27 +84,38 @@ const ClothInspectionSystem = () => {
     if (gestureCooldown || countdown !== null) return;
 
     setGestureCooldown(true);
-    setStatus('Photo gesture detected! Capturing...');
-    
+    setStatus('Photo gesture detected! Capturing in...');
+
+    let count = 2;
+    setCountdown(count);
+    const interval = setInterval(() => {
+      count -= 1;
+      setCountdown(count);
+      if (count === 0) {
+        clearInterval(interval);
+      }
+    }, 1000);
+
     setTimeout(() => {
       if (cameraFeedRef.current) {
-          const imageDataUrl = cameraFeedRef.current.captureFrame();
-          if (imageDataUrl) {
-              const newImage: CapturedImage = {
-                  id: `img-${Date.now()}`,
-                  src: imageDataUrl,
-                  timestamp: new Date().toLocaleTimeString(),
-                  defects: 0,
-              };
-              setCapturedImages(prev => [newImage, ...prev]);
-              setStatus('Photo captured. Ready for next inspection.');
-          } else {
-              setStatus('Failed to capture photo.');
-          }
+        const imageDataUrl = cameraFeedRef.current.captureFrame();
+        if (imageDataUrl) {
+          const newImage: CapturedImage = {
+            id: `img-${Date.now()}`,
+            src: imageDataUrl,
+            timestamp: new Date().toLocaleTimeString(),
+            defects: 0,
+          };
+          setCapturedImages(prev => [newImage, ...prev]);
+          setStatus('Photo captured. Ready for next inspection.');
+        } else {
+          setStatus('Failed to capture photo.');
+        }
       }
-      
+
+      setCountdown(null);
       setTimeout(() => setGestureCooldown(false), 1000);
-    }, 500);
+    }, 2000);
   }, [gestureCooldown, countdown]);
 
   const handleClearGesture = useCallback(() => {
