@@ -13,11 +13,11 @@ export function processImage(videoElement: HTMLVideoElement, circles: Circle[]):
     return '';
   }
 
-  ctx.save();
-  ctx.scale(-1, 1);
-  ctx.drawImage(videoElement, -videoWidth, 0, videoWidth, videoHeight);
-  ctx.restore();
+  // Draw the raw (non-mirrored) video frame onto the canvas.
+  ctx.drawImage(videoElement, 0, 0, videoWidth, videoHeight);
 
+  // The circles are already in the coordinate system of the raw video frame,
+  // so we can draw them directly without any transformation.
   circles.forEach((circle, index) => {
     ctx.beginPath();
     ctx.arc(circle.center.x, circle.center.y, circle.radius, 0, 2 * Math.PI, false);
