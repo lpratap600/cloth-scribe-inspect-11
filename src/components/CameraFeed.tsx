@@ -1,9 +1,11 @@
-import React, { useRef, useEffect, useImperativeHandle, forwardRef, useState } from 'react';
-import { Hands, Results as HandResults, LandmarkList, Handedness } from '@mediapipe/hands';
-import { drawConnectors, drawLandmarks } from '@mediapipe/drawing_utils';
-import { HAND_CONNECTIONS } from '@mediapipe/hands';
+
+import React, { useRef, useImperativeHandle, forwardRef, useState, useCallback, useEffect } from 'react';
+import { Results as HandResults } from '@mediapipe/hands';
 import GestureDetector, { Circle } from '@/utils/gestureDetector';
 import { ThumbsDown } from 'lucide-react';
+import { useHandTracking } from '@/hooks/useHandTracking';
+import { isFingerExtended, detectPhotoCaptureGesture, detectThumbsDownGesture } from '@/utils/gestureUtils';
+import HandOverlayCanvas from './HandOverlayCanvas';
 
 interface CameraFeedProps {
   onCircleDetected: (circle: Circle) => void;
@@ -13,17 +15,18 @@ interface CameraFeedProps {
   isBusy: boolean;
 }
 
+const PHOTO_GESTURE_HOLD_DURATION = 2000; // 2 seconds
+const CLEAR_GESTURE_HOLD_DURATION = 1000; // 1 second
+
 const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGesture, onClearGesture, isBusy }: CameraFeedProps, ref) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [handResults, setHandResults] = useState<HandResults | null>(null);
+  const [drawingPath, setDrawingPath] = useState<{x: number, y: number}[]>([]);
   const gestureDetector = useRef<GestureDetector>(new GestureDetector());
-  const [isLoading, setIsLoading] = useState(true);
   const [showClearGestureIndicator, setShowClearGestureIndicator] = useState(false);
+  
   const photoGestureTimerRef = useRef<number | null>(null);
   const clearGestureTimerRef = useRef<number | null>(null);
-  const PHOTO_GESTURE_HOLD_DURATION = 2000; // 2 seconds
-  const CLEAR_GESTURE_HOLD_DURATION = 1000; // 1 second
-
+  
   const onCircleDetectedRef = useRef(onCircleDetected);
   onCircleDetectedRef.current = onCircleDetected;
   
@@ -39,17 +42,101 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
   const isBusyRef = useRef(isBusy);
   isBusyRef.current = isBusy;
 
+  const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  const handleHandResults = useCallback((results: HandResults) => {
+    setHandResults(results);
+
+    const canvas = overlayCanvasRef.current;
+    if (!canvas) return;
+
+    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+      const twoHands = results.multiHandLandmarks.length === 2;
+      let isPhotoGesture = twoHands ? detectPhotoCaptureGesture(results.multiHandLandmarks[0], results.multiHandLandmarks[1]) : false;
+      let isClearGesture = twoHands ? detectThumbsDownGesture(results.multiHandLandmarks[0], results.multiHandLandmarks[1]) : false;
+
+      if (isPhotoGesture) {
+          isClearGesture = false;
+      }
+
+      setShowClearGestureIndicator(isClearGesture && !isBusyRef.current);
+
+      if (isPhotoGesture && !isBusyRef.current) {
+          if (!photoGestureTimerRef.current) {
+              photoGestureTimerRef.current = window.setTimeout(() => {
+                  onPhotoCaptureGestureRef.current();
+                  photoGestureTimerRef.current = null;
+              }, PHOTO_GESTURE_HOLD_DURATION);
+          }
+      } else {
+          if (photoGestureTimerRef.current) {
+              clearTimeout(photoGestureTimerRef.current);
+              photoGestureTimerRef.current = null;
+          }
+      }
+
+      if (isClearGesture && !isBusyRef.current) {
+          if (!clearGestureTimerRef.current) {
+              clearGestureTimerRef.current = window.setTimeout(() => {
+                  onClearGestureRef.current();
+                  clearGestureTimerRef.current = null;
+              }, CLEAR_GESTURE_HOLD_DURATION);
+          }
+      } else {
+          if (clearGestureTimerRef.current) {
+              clearTimeout(clearGestureTimerRef.current);
+              clearGestureTimerRef.current = null;
+          }
+      }
+      
+      const noTwoHandGestureActive = !isPhotoGesture && !isClearGesture;
+
+      if (results.multiHandLandmarks.length === 1 && noTwoHandGestureActive) {
+        const landmarks = results.multiHandLandmarks[0];
+        if (isFingerExtended(landmarks, 8, 6) && !isFingerExtended(landmarks, 12, 10)) {
+          const indexFingerTip = landmarks[8];
+          if (indexFingerTip) {
+            const point = { x: indexFingerTip.x * canvas.width, y: indexFingerTip.y * canvas.height };
+            
+            if (isDetectingRef.current) {
+              gestureDetector.current.addPoint(point);
+              const circle = gestureDetector.current.detectCircle();
+              if (circle) {
+                onCircleDetectedRef.current(circle);
+              }
+            }
+          }
+        }
+      }
+    } else {
+      if (photoGestureTimerRef.current) clearTimeout(photoGestureTimerRef.current);
+      if (clearGestureTimerRef.current) clearTimeout(clearGestureTimerRef.current);
+      photoGestureTimerRef.current = null;
+      clearGestureTimerRef.current = null;
+      setShowClearGestureIndicator(false);
+    }
+    
+    setDrawingPath([...gestureDetector.current.getPoints()]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const { videoRef, isLoading } = useHandTracking({ onResults: handleHandResults });
+
   useImperativeHandle(ref, () => ({
     captureFrame: () => {
-      if (canvasRef.current && videoRef.current) {
+      if (videoRef.current) {
         const canvas = document.createElement('canvas');
-        canvas.width = videoRef.current.videoWidth;
-        canvas.height = videoRef.current.videoHeight;
+        const video = videoRef.current;
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
         const ctx = canvas.getContext('2d');
         if (ctx) {
+          ctx.save();
+          // Flip the context horizontally to match the live preview
           ctx.scale(-1, 1);
-          ctx.drawImage(videoRef.current, -canvas.width, 0, canvas.width, canvas.height);
-          ctx.scale(-1, 1);
+          // Draw the video frame
+          ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+          ctx.restore();
+          
           return canvas.toDataURL('image/jpeg');
         }
       }
@@ -57,233 +144,15 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
     },
     clearCanvas: () => {
       gestureDetector.current.clearPoints();
-      const canvas = canvasRef.current;
-      if (canvas) {
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-        }
-      }
+      setDrawingPath([]);
     }
   }));
-
+  
+  // Cleanup timers on unmount
   useEffect(() => {
-    let isComponentMounted = true;
-    let animationFrameId: number;
-
-    const hands = new Hands({
-      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
-    });
-
-    hands.setOptions({
-      maxNumHands: 2,
-      modelComplexity: 1,
-      minDetectionConfidence: 0.7,
-      minTrackingConfidence: 0.7,
-    });
-
-    const isFingerExtended = (landmarks: LandmarkList, tipIndex: number, pipIndex: number): boolean => {
-      const wrist = landmarks[0];
-      const fingerPip = landmarks[pipIndex];
-      const fingerTip = landmarks[tipIndex];
-
-      if (!wrist || !fingerPip || !fingerTip) return false;
-      
-      const distTipToWrist = Math.hypot(fingerTip.x - wrist.x, fingerTip.y - wrist.y);
-      const distPipToWrist = Math.hypot(fingerPip.x - wrist.x, fingerPip.y - wrist.y);
-      
-      return distTipToWrist > distPipToWrist * 1.1;
-    };
-
-    const isThumbsDown = (landmarks: LandmarkList): boolean => {
-      const thumbTip = landmarks[4];
-      const thumbMcp = landmarks[2]; // Metacarpophalangeal joint (base of thumb)
-
-      if (!thumbTip || !thumbMcp) return false;
-
-      // Thumb points down if tip is "lower" (higher y value) than its base joint.
-      const thumbIsPointingDown = thumbTip.y > thumbMcp.y;
-      
-      // All other fingers should be curled (not extended).
-      const indexIsExtended = isFingerExtended(landmarks, 8, 6);
-      const middleIsExtended = isFingerExtended(landmarks, 12, 10);
-      const ringIsExtended = isFingerExtended(landmarks, 16, 14);
-      const pinkyIsExtended = isFingerExtended(landmarks, 20, 18);
-
-      return thumbIsPointingDown && !indexIsExtended && !middleIsExtended && !ringIsExtended && !pinkyIsExtended;
-    };
-    
-    const detectThumbsDownGesture = (hand1: LandmarkList, hand2: LandmarkList): boolean => {
-      return isThumbsDown(hand1) && isThumbsDown(hand2);
-    };
-
-    const isThumbUp = (landmarks: LandmarkList): boolean => {
-      const thumbTip = landmarks[4];
-      const thumbMcp = landmarks[2];
-
-      if (!thumbTip || !thumbMcp) return false;
-
-      // Thumb points up if tip is "higher" (lower y value) than its base joint.
-      const thumbIsPointingUp = thumbTip.y < thumbMcp.y;
-      
-      // All other fingers should be curled (not extended).
-      const indexIsExtended = isFingerExtended(landmarks, 8, 6);
-      const middleIsExtended = isFingerExtended(landmarks, 12, 10);
-      const ringIsExtended = isFingerExtended(landmarks, 16, 14);
-      const pinkyIsExtended = isFingerExtended(landmarks, 20, 18);
-
-      return thumbIsPointingUp && !indexIsExtended && !middleIsExtended && !ringIsExtended && !pinkyIsExtended;
-    };
-
-    const detectPhotoCaptureGesture = (hand1: LandmarkList, hand2: LandmarkList): boolean => {
-      return isThumbUp(hand1) && isThumbUp(hand2);
-    };
-
-    const onResults = (results: HandResults) => {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      if (!video || !canvas) return;
-
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      let isDrawingAllowed = false;
-
-      if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-        for (const landmarks of results.multiHandLandmarks) {
-          drawConnectors(ctx, landmarks, HAND_CONNECTIONS, { color: '#0D9488', lineWidth: 2 });
-          drawLandmarks(ctx, landmarks, { color: '#2563EB', lineWidth: 1, radius: 3 });
-        }
-
-        const twoHands = results.multiHandLandmarks.length === 2;
-        const isPhotoGesture = twoHands ? detectPhotoCaptureGesture(results.multiHandLandmarks[0], results.multiHandLandmarks[1]) : false;
-        let isClearGesture = twoHands ? detectThumbsDownGesture(results.multiHandLandmarks[0], results.multiHandLandmarks[1]) : false;
-
-        // Prioritize photo gesture over clear gesture if both are detected
-        if (isPhotoGesture) {
-            isClearGesture = false;
-        }
-
-        setShowClearGestureIndicator(isClearGesture && !isBusyRef.current);
-
-        // Photo gesture timer
-        if (isPhotoGesture && !isBusyRef.current) {
-            if (!photoGestureTimerRef.current) {
-                photoGestureTimerRef.current = window.setTimeout(() => {
-                    onPhotoCaptureGestureRef.current();
-                    photoGestureTimerRef.current = null;
-                }, PHOTO_GESTURE_HOLD_DURATION);
-            }
-        } else {
-            if (photoGestureTimerRef.current) {
-                clearTimeout(photoGestureTimerRef.current);
-                photoGestureTimerRef.current = null;
-            }
-        }
-
-        // Clear gesture timer
-        if (isClearGesture && !isBusyRef.current) {
-            if (!clearGestureTimerRef.current) {
-                clearGestureTimerRef.current = window.setTimeout(() => {
-                    onClearGestureRef.current();
-                    clearGestureTimerRef.current = null;
-                }, CLEAR_GESTURE_HOLD_DURATION);
-            }
-        } else {
-            if (clearGestureTimerRef.current) {
-                clearTimeout(clearGestureTimerRef.current);
-                clearGestureTimerRef.current = null;
-            }
-        }
-        
-        const noTwoHandGestureActive = !isPhotoGesture && !isClearGesture;
-
-        if (results.multiHandLandmarks.length === 1 && noTwoHandGestureActive) {
-          const landmarks = results.multiHandLandmarks[0];
-          if (isFingerExtended(landmarks, 8, 6) && !isFingerExtended(landmarks, 12, 10)) {
-            isDrawingAllowed = true;
-            const indexFingerTip = landmarks[8];
-            if (indexFingerTip) {
-              const point = { x: indexFingerTip.x * canvas.width, y: indexFingerTip.y * canvas.height };
-              
-              if (isDetectingRef.current) {
-                gestureDetector.current.addPoint(point);
-                const circle = gestureDetector.current.detectCircle();
-                if (circle) {
-                  onCircleDetectedRef.current(circle);
-                }
-              }
-            }
-          }
-        }
-      } else {
-        if (photoGestureTimerRef.current) {
-          clearTimeout(photoGestureTimerRef.current);
-          photoGestureTimerRef.current = null;
-        }
-        if (clearGestureTimerRef.current) {
-          clearTimeout(clearGestureTimerRef.current);
-          clearGestureTimerRef.current = null;
-        }
-        setShowClearGestureIndicator(false);
-      }
-      
-      // The logic to clear points when drawing was not allowed has been removed
-      // to prevent the path from disappearing unexpectedly.
-      
-      const path = gestureDetector.current.getPoints();
-      if(path.length > 1) {
-        ctx.beginPath();
-        ctx.moveTo(path[0].x, path[0].y);
-        for(let i=1; i<path.length; i++) {
-          ctx.lineTo(path[i].x, path[i].y);
-        }
-        ctx.strokeStyle = '#EA580C';
-        ctx.lineWidth = 4;
-        ctx.stroke();
-      }
-    };
-
-    hands.onResults(onResults);
-
-    const onFrame = async () => {
-      if (videoRef.current && isComponentMounted) {
-        await hands.send({ image: videoRef.current });
-      }
-      if (isComponentMounted) {
-        animationFrameId = requestAnimationFrame(onFrame);
-      }
-    };
-
-    if (videoRef.current) {
-      navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } })
-        .then((stream) => {
-          if (!isComponentMounted || !videoRef.current) {
-            stream.getTracks().forEach(track => track.stop());
-            return;
-          };
-          videoRef.current.srcObject = stream;
-          videoRef.current.onloadedmetadata = () => {
-            if (!isComponentMounted) return;
-            setIsLoading(false);
-            videoRef.current!.play();
-            animationFrameId = requestAnimationFrame(onFrame);
-          };
-        });
-    }
-
     return () => {
-      isComponentMounted = false;
-      cancelAnimationFrame(animationFrameId);
-      hands.close();
       if (photoGestureTimerRef.current) clearTimeout(photoGestureTimerRef.current);
       if (clearGestureTimerRef.current) clearTimeout(clearGestureTimerRef.current);
-      if (videoRef.current && videoRef.current.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
-      }
     };
   }, []);
 
@@ -291,7 +160,7 @@ const CameraFeed = forwardRef(({ onCircleDetected, isDetecting, onPhotoCaptureGe
     <>
       {isLoading && <div className="absolute inset-0 flex items-center justify-center bg-black"><p>Starting camera...</p></div>}
       <video ref={videoRef} className="w-full h-full object-cover -scale-x-100" playsInline />
-      <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-full -scale-x-100" width="1280" height="720" />
+      <HandOverlayCanvas ref={overlayCanvasRef} handResults={handResults} drawingPath={drawingPath} />
       {showClearGestureIndicator && (
         <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 pointer-events-none">
           <div className="text-center text-white p-4 bg-gray-900 bg-opacity-75 rounded-lg">

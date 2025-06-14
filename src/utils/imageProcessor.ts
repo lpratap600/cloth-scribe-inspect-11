@@ -1,27 +1,30 @@
 
 import type { Circle } from './gestureDetector';
 
-export function processImage(videoElement: HTMLVideoElement, circles: Circle[]): string {
+export async function processImage(baseImageDataUrl: string, circles: Circle[]): Promise<string> {
   const canvas = document.createElement('canvas');
-  const videoWidth = videoElement.videoWidth;
-  const videoHeight = videoElement.videoHeight;
-  canvas.width = videoWidth;
-  canvas.height = videoHeight;
-
   const ctx = canvas.getContext('2d');
   if (!ctx) {
     return '';
   }
 
-  // Draw the mirrored video frame to match the live preview
-  ctx.save();
-  ctx.scale(-1, 1);
-  ctx.drawImage(videoElement, -videoWidth, 0, videoWidth, videoHeight);
-  ctx.restore();
+  const img = new Image();
+  await new Promise((resolve, reject) => {
+    img.onload = resolve;
+    img.onerror = reject;
+    img.src = baseImageDataUrl;
+  });
 
-  // Draw the circles on the mirrored image. We need to mirror their x-coordinates.
+  canvas.width = img.width;
+  canvas.height = img.height;
+
+  // The base image is already mirrored to match the preview.
+  ctx.drawImage(img, 0, 0);
+
+  // Draw the circles on the mirrored image. 
+  // The circle coordinates are for the un-mirrored view, so we must flip the X-coordinate.
   circles.forEach((circle, index) => {
-    const mirroredCircleX = videoWidth - circle.center.x;
+    const mirroredCircleX = canvas.width - circle.center.x;
 
     ctx.beginPath();
     ctx.arc(mirroredCircleX, circle.center.y, circle.radius, 0, 2 * Math.PI, false);

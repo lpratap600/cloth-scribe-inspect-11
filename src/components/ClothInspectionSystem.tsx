@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useCallback } from 'react';
 import CameraFeed from './CameraFeed';
 import InspectionResults from './InspectionResults';
@@ -42,9 +41,8 @@ const ClothInspectionSystem = () => {
       }
     }, 1000);
 
-    setTimeout(() => {
-      const videoElement = document.querySelector('video');
-      if (!cameraFeedRef.current || !videoElement) {
+    setTimeout(async () => {
+      if (!cameraFeedRef.current) {
         setStatus('Error during capture. Please try again.');
         setIsDetecting(true);
         setCountdown(null);
@@ -54,7 +52,7 @@ const ClothInspectionSystem = () => {
       const imageDataUrl = cameraFeedRef.current.captureFrame();
 
       if (imageDataUrl) {
-        const annotatedImageSrc = processImage(videoElement, [circle]);
+        const annotatedImageSrc = await processImage(imageDataUrl, [circle]);
         
         const newImage: CapturedImage = {
           id: `img-${Date.now()}`,
