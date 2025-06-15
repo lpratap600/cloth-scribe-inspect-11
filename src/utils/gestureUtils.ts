@@ -1,5 +1,5 @@
 
-import { LandmarkList } from '@mediapipe/hands';
+import type { LandmarkList } from '@mediapipe/hands';
 
 export const isFingerExtended = (landmarks: LandmarkList, tipIndex: number, pipIndex: number): boolean => {
   const wrist = landmarks[0];

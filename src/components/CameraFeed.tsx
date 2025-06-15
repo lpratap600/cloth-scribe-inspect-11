@@ -1,6 +1,6 @@
 
 import React, { useRef, useImperativeHandle, forwardRef, useState, useCallback, useEffect } from 'react';
-import { Results as HandResults } from '@mediapipe/hands';
+import type { Results as HandResults } from '@mediapipe/hands';
 import GestureDetector, { Circle } from '@/utils/gestureDetector';
 import { ThumbsDown } from 'lucide-react';
 import { useHandTracking } from '@/hooks/useHandTracking';
