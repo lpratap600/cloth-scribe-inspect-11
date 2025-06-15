@@ -2,7 +2,7 @@
 import React from 'react';
 import type { Results as HandResults } from '@mediapipe/hands';
 import { drawConnectors, drawLandmarks } from '@mediapipe/drawing_utils';
-import * as mediapipeHands from '@mediapipe/hands';
+import { HAND_CONNECTIONS } from '@mediapipe/hands';
 
 interface HandOverlayCanvasProps {
   handResults: HandResults | null;
@@ -24,7 +24,7 @@ const HandOverlayCanvas = React.forwardRef<HTMLCanvasElement, HandOverlayCanvasP
 
     if (handResults && handResults.multiHandLandmarks) {
       for (const landmarks of handResults.multiHandLandmarks) {
-        drawConnectors(ctx, landmarks, mediapipeHands.HAND_CONNECTIONS, { color: '#0D9488', lineWidth: 2 });
+        drawConnectors(ctx, landmarks, HAND_CONNECTIONS, { color: '#0D9488', lineWidth: 2 });
         drawLandmarks(ctx, landmarks, { color: '#2563EB', lineWidth: 1, radius: 3 });
       }
     }
