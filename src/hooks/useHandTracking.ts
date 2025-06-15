@@ -1,6 +1,6 @@
 
 import { useEffect, useRef, useState } from 'react';
-import Hands from '@mediapipe/hands';
+import { Hands } from '@mediapipe/hands';
 import type { Results as HandResults } from '@mediapipe/hands';
 
 interface UseHandTrackingProps {
