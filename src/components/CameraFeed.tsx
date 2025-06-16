@@ -68,7 +68,21 @@ const CameraFeed = forwardRef<{
       <div className="cf-container">
         <div className="cf-loading-container">
           <p className="cf-loading-text">Camera Error: {error}</p>
-          <p className="cf-loading-text">Please allow camera access and refresh the page</p>
+          <p className="cf-loading-text">Please refresh the page and allow camera access</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            style={{ 
+              marginTop: '10px', 
+              padding: '8px 16px', 
+              backgroundColor: '#4f46e5', 
+              color: 'white', 
+              border: 'none', 
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            Refresh Page
+          </button>
         </div>
       </div>
     );
@@ -78,8 +92,21 @@ const CameraFeed = forwardRef<{
     return (
       <div className="cf-container">
         <div className="cf-loading-container">
-          <p className="cf-loading-text">Loading camera...</p>
-          <p className="cf-loading-text">Please allow camera access when prompted</p>
+          <div style={{ textAlign: 'center' }}>
+            <p className="cf-loading-text">Initializing camera and hand tracking...</p>
+            <div style={{ 
+              width: '40px', 
+              height: '40px', 
+              border: '3px solid #f3f3f3',
+              borderTop: '3px solid #4f46e5',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite',
+              margin: '20px auto'
+            }}></div>
+            <p className="cf-loading-text" style={{ fontSize: '14px', color: '#888' }}>
+              Check console (F12) for detailed logs
+            </p>
+          </div>
         </div>
       </div>
     );

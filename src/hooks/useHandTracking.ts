@@ -18,67 +18,92 @@ export const useHandTracking = ({ onResults }: UseHandTrackingProps) => {
     let isComponentMounted = true;
     let animationFrameId: number;
     let hands: Hands;
+    let stream: MediaStream | null = null;
 
     const initializeCamera = async () => {
       try {
-        console.log('Requesting camera access...');
+        console.log('🎥 Step 1: Requesting camera access...');
         
-        // Check if getUserMedia is supported
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
           throw new Error('Camera not supported in this browser');
         }
 
-        const stream = await navigator.mediaDevices.getUserMedia({ 
+        stream = await navigator.mediaDevices.getUserMedia({ 
           video: { 
-            width: 1280, 
-            height: 720,
+            width: { ideal: 1280 }, 
+            height: { ideal: 720 },
             facingMode: 'user'
           } 
         });
 
         if (!isComponentMounted || !videoRef.current) {
-          stream.getTracks().forEach(track => track.stop());
+          console.log('❌ Component unmounted during camera setup');
+          if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+          }
           return;
         }
 
-        console.log('Camera access granted, setting up video...');
+        console.log('✅ Step 2: Camera access granted, setting up video...');
         videoRef.current.srcObject = stream;
         
-        videoRef.current.onloadedmetadata = () => {
-          if (!isComponentMounted || !videoRef.current) return;
-          
-          console.log('Video metadata loaded, starting playback...');
-          videoRef.current.play().then(() => {
-            console.log('Video playing, initializing MediaPipe...');
-            initializeMediaPipe();
-          }).catch(err => {
-            console.error('Error playing video:', err);
-            setError('Failed to start video playback');
-            setIsLoading(false);
-          });
-        };
+        // Wait for video to be ready
+        await new Promise<void>((resolve, reject) => {
+          if (!videoRef.current) {
+            reject(new Error('Video element not available'));
+            return;
+          }
 
-        videoRef.current.onerror = (err) => {
-          console.error('Video error:', err);
-          setError('Video playback error');
-          setIsLoading(false);
-        };
+          const video = videoRef.current;
+          
+          const handleLoadedMetadata = () => {
+            console.log('✅ Step 3: Video metadata loaded');
+            video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+            video.removeEventListener('error', handleError);
+            resolve();
+          };
+
+          const handleError = (err: Event) => {
+            console.error('❌ Video error:', err);
+            video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+            video.removeEventListener('error', handleError);
+            reject(new Error('Video loading failed'));
+          };
+
+          video.addEventListener('loadedmetadata', handleLoadedMetadata);
+          video.addEventListener('error', handleError);
+        });
+
+        if (!isComponentMounted || !videoRef.current) return;
+
+        console.log('✅ Step 4: Starting video playback...');
+        await videoRef.current.play();
+        console.log('✅ Step 5: Video is playing, initializing MediaPipe...');
+        
+        await initializeMediaPipe();
 
       } catch (err) {
-        console.error("Failed to get user media:", err);
-        setError('Camera access denied or not available');
-        setIsLoading(false);
+        console.error("❌ Camera initialization failed:", err);
+        if (isComponentMounted) {
+          setError(err instanceof Error ? err.message : 'Camera access failed');
+          setIsLoading(false);
+        }
       }
     };
 
-    const initializeMediaPipe = () => {
+    const initializeMediaPipe = async () => {
       try {
-        console.log('Initializing MediaPipe Hands...');
+        console.log('🤖 Step 6: Creating MediaPipe Hands instance...');
         
         hands = new Hands({
-          locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
+          locateFile: (file) => {
+            const url = `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+            console.log(`📦 Loading MediaPipe file: ${url}`);
+            return url;
+          },
         });
 
+        console.log('🤖 Step 7: Setting MediaPipe options...');
         hands.setOptions({
           maxNumHands: 2,
           modelComplexity: 1,
@@ -86,20 +111,28 @@ export const useHandTracking = ({ onResults }: UseHandTrackingProps) => {
           minTrackingConfidence: 0.7,
         });
 
+        console.log('🤖 Step 8: Setting up results handler...');
         hands.onResults((results) => {
           if (isComponentMounted) {
             onResultsRef.current(results);
           }
         });
 
-        console.log('MediaPipe initialized, starting detection loop...');
-        setIsLoading(false);
-        animationFrameId = requestAnimationFrame(onFrame);
+        console.log('✅ Step 9: MediaPipe initialized successfully!');
+        
+        if (isComponentMounted) {
+          setIsLoading(false);
+          setError(null);
+          console.log('🚀 Step 10: Starting detection loop...');
+          animationFrameId = requestAnimationFrame(onFrame);
+        }
 
       } catch (err) {
-        console.error('MediaPipe initialization error:', err);
-        setError('Failed to initialize hand tracking');
-        setIsLoading(false);
+        console.error('❌ MediaPipe initialization error:', err);
+        if (isComponentMounted) {
+          setError('Failed to initialize hand tracking');
+          setIsLoading(false);
+        }
       }
     };
 
@@ -108,7 +141,7 @@ export const useHandTracking = ({ onResults }: UseHandTrackingProps) => {
         try {
           await hands.send({ image: videoRef.current });
         } catch (err) {
-          console.error('MediaPipe processing error:', err);
+          console.error('❌ MediaPipe processing error:', err);
         }
       }
       if (isComponentMounted) {
@@ -120,17 +153,26 @@ export const useHandTracking = ({ onResults }: UseHandTrackingProps) => {
     initializeCamera();
 
     return () => {
-      console.log('Cleaning up hand tracking...');
+      console.log('🧹 Cleaning up hand tracking...');
       isComponentMounted = false;
-      cancelAnimationFrame(animationFrameId);
       
-      if (hands) {
-        hands.close();
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
       }
       
-      if (videoRef.current && videoRef.current.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
+      if (hands) {
+        try {
+          hands.close();
+        } catch (err) {
+          console.error('Error closing MediaPipe:', err);
+        }
+      }
+      
+      if (stream) {
+        stream.getTracks().forEach(track => {
+          track.stop();
+          console.log('🛑 Stopped camera track');
+        });
       }
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
