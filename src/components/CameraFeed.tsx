@@ -21,7 +21,7 @@ const CameraFeed = forwardRef<{
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [handResults, setHandResults] = React.useState<HandResults | null>(null);
 
-  const { videoRef, isLoading } = useHandTracking({
+  const { videoRef, isLoading, error } = useHandTracking({
     onResults: (results: HandResults) => {
       setHandResults(results);
     }
@@ -63,11 +63,23 @@ const CameraFeed = forwardRef<{
     clearCanvas
   }));
 
+  if (error) {
+    return (
+      <div className="cf-container">
+        <div className="cf-loading-container">
+          <p className="cf-loading-text">Camera Error: {error}</p>
+          <p className="cf-loading-text">Please allow camera access and refresh the page</p>
+        </div>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="cf-container">
         <div className="cf-loading-container">
           <p className="cf-loading-text">Loading camera...</p>
+          <p className="cf-loading-text">Please allow camera access when prompted</p>
         </div>
       </div>
     );
