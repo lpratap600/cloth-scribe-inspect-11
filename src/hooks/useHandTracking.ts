@@ -1,6 +1,6 @@
 
 import { useEffect, useRef, useState } from 'react';
-import { Hands } from '@mediapipe/hands';
+import * as mpHands from '@mediapipe/hands';
 import type { Results as HandResults } from '@mediapipe/hands';
 
 interface UseHandTrackingProps {
@@ -17,7 +17,7 @@ export const useHandTracking = ({ onResults }: UseHandTrackingProps) => {
     let isComponentMounted = true;
     let animationFrameId: number;
 
-    const hands = new Hands({
+    const hands = new mpHands.Hands({
       locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
     });
 
