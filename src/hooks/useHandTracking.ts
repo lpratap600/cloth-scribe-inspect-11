@@ -12,13 +12,53 @@ export const useHandTracking = ({ onResults }: UseHandTrackingProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const onResultsRef = useRef(onResults);
+  const initializationRef = useRef<boolean>(false);
+  const cleanupRef = useRef<() => void>();
+  
   onResultsRef.current = onResults;
 
   useEffect(() => {
+    // Prevent multiple initializations
+    if (initializationRef.current) {
+      console.log('🔄 Initialization already in progress, skipping...');
+      return;
+    }
+
+    initializationRef.current = true;
     let isComponentMounted = true;
     let animationFrameId: number;
     let hands: Hands;
     let stream: MediaStream | null = null;
+
+    const cleanup = () => {
+      console.log('🧹 Starting cleanup...');
+      isComponentMounted = false;
+      
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+      
+      if (hands) {
+        try {
+          hands.close();
+          console.log('✅ MediaPipe hands closed');
+        } catch (err) {
+          console.error('❌ Error closing MediaPipe:', err);
+        }
+      }
+      
+      if (stream) {
+        stream.getTracks().forEach(track => {
+          track.stop();
+          console.log('🛑 Stopped camera track');
+        });
+      }
+
+      initializationRef.current = false;
+      console.log('🧹 Cleanup completed');
+    };
+
+    cleanupRef.current = cleanup;
 
     const initializeCamera = async () => {
       try {
@@ -36,11 +76,16 @@ export const useHandTracking = ({ onResults }: UseHandTrackingProps) => {
           } 
         });
 
-        if (!isComponentMounted || !videoRef.current) {
+        if (!isComponentMounted) {
           console.log('❌ Component unmounted during camera setup');
           if (stream) {
             stream.getTracks().forEach(track => track.stop());
           }
+          return;
+        }
+
+        if (!videoRef.current) {
+          console.log('❌ Video ref not available');
           return;
         }
 
@@ -49,8 +94,8 @@ export const useHandTracking = ({ onResults }: UseHandTrackingProps) => {
         
         // Wait for video to be ready
         await new Promise<void>((resolve, reject) => {
-          if (!videoRef.current) {
-            reject(new Error('Video element not available'));
+          if (!videoRef.current || !isComponentMounted) {
+            reject(new Error('Video element not available or component unmounted'));
             return;
           }
 
@@ -74,12 +119,20 @@ export const useHandTracking = ({ onResults }: UseHandTrackingProps) => {
           video.addEventListener('error', handleError);
         });
 
-        if (!isComponentMounted || !videoRef.current) return;
+        if (!isComponentMounted || !videoRef.current) {
+          console.log('❌ Component unmounted during video setup');
+          return;
+        }
 
         console.log('✅ Step 4: Starting video playback...');
         await videoRef.current.play();
-        console.log('✅ Step 5: Video is playing, initializing MediaPipe...');
         
+        if (!isComponentMounted) {
+          console.log('❌ Component unmounted during video play');
+          return;
+        }
+
+        console.log('✅ Step 5: Video is playing, initializing MediaPipe...');
         await initializeMediaPipe();
 
       } catch (err) {
@@ -93,6 +146,11 @@ export const useHandTracking = ({ onResults }: UseHandTrackingProps) => {
 
     const initializeMediaPipe = async () => {
       try {
+        if (!isComponentMounted) {
+          console.log('❌ Component unmounted during MediaPipe init');
+          return;
+        }
+
         console.log('🤖 Step 6: Creating MediaPipe Hands instance...');
         
         hands = new Hands({
@@ -102,6 +160,11 @@ export const useHandTracking = ({ onResults }: UseHandTrackingProps) => {
             return url;
           },
         });
+
+        if (!isComponentMounted) {
+          console.log('❌ Component unmounted during MediaPipe creation');
+          return;
+        }
 
         console.log('🤖 Step 7: Setting MediaPipe options...');
         hands.setOptions({
@@ -118,14 +181,17 @@ export const useHandTracking = ({ onResults }: UseHandTrackingProps) => {
           }
         });
 
+        if (!isComponentMounted) {
+          console.log('❌ Component unmounted during MediaPipe setup');
+          return;
+        }
+
         console.log('✅ Step 9: MediaPipe initialized successfully!');
         
-        if (isComponentMounted) {
-          setIsLoading(false);
-          setError(null);
-          console.log('🚀 Step 10: Starting detection loop...');
-          animationFrameId = requestAnimationFrame(onFrame);
-        }
+        setIsLoading(false);
+        setError(null);
+        console.log('🚀 Step 10: Starting detection loop...');
+        animationFrameId = requestAnimationFrame(onFrame);
 
       } catch (err) {
         console.error('❌ MediaPipe initialization error:', err);
@@ -137,45 +203,42 @@ export const useHandTracking = ({ onResults }: UseHandTrackingProps) => {
     };
 
     const onFrame = async () => {
-      if (videoRef.current && isComponentMounted && hands) {
+      if (!isComponentMounted) return;
+      
+      if (videoRef.current && hands) {
         try {
           await hands.send({ image: videoRef.current });
         } catch (err) {
           console.error('❌ MediaPipe processing error:', err);
         }
       }
+      
       if (isComponentMounted) {
         animationFrameId = requestAnimationFrame(onFrame);
       }
     };
 
-    // Start the initialization process
-    initializeCamera();
+    // Small delay to ensure component is stable before initialization
+    const initTimer = setTimeout(() => {
+      if (isComponentMounted) {
+        initializeCamera();
+      }
+    }, 100);
 
     return () => {
-      console.log('🧹 Cleaning up hand tracking...');
-      isComponentMounted = false;
-      
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-      }
-      
-      if (hands) {
-        try {
-          hands.close();
-        } catch (err) {
-          console.error('Error closing MediaPipe:', err);
-        }
-      }
-      
-      if (stream) {
-        stream.getTracks().forEach(track => {
-          track.stop();
-          console.log('🛑 Stopped camera track');
-        });
-      }
+      clearTimeout(initTimer);
+      cleanup();
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (cleanupRef.current) {
+        cleanupRef.current();
+      }
+    };
+  }, []);
 
   return { videoRef, isLoading, error };
 };
