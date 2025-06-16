@@ -14,41 +14,44 @@ interface InspectionResultsProps {
 
 const InspectionResults = ({ capturedImages, onImageSelect, onImageDelete }: InspectionResultsProps) => {
   return (
-    <Card className="h-full flex flex-col bg-gray-800 border-gray-700">
-      <CardHeader>
-        <CardTitle className="text-teal-400">Inspection Results</CardTitle>
-      </CardHeader>
-      <CardContent className="flex-grow p-0">
-        <ScrollArea className="h-[calc(100vh-200px)] p-4">
+    <div className="ir-container">
+      <div className="ir-header">
+        <h3 className="ir-title">Inspection Results</h3>
+      </div>
+      <div className="ir-content">
+        <div className="ir-scroll-area">
           {capturedImages.length === 0 ? (
-            <div className="text-center text-gray-500 py-10">
+            <div className="ir-empty-state">
               <p>No defects captured yet.</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="ir-images-grid">
               {capturedImages.map((image) => (
-                <div key={image.id} className="bg-gray-700 p-2 rounded-lg shadow">
-                  <img src={image.src} alt="Captured inspection" className="rounded cursor-pointer" onClick={() => onImageSelect(image)} />
-                  <div className="text-xs text-gray-400 mt-2 flex justify-between items-center">
+                <div key={image.id} className="ir-image-item">
+                  <img 
+                    src={image.src} 
+                    alt="Captured inspection" 
+                    className="ir-image" 
+                    onClick={() => onImageSelect(image)} 
+                  />
+                  <div className="ir-image-info">
                     <span>{image.timestamp}</span>
                     <span>{image.defects} defect(s)</span>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="text-red-500 hover:text-red-400 h-6 w-6" 
+                    <button 
+                      className="ir-delete-button"
                       onClick={() => onImageDelete(image.id)}
                       aria-label="Delete image"
                     >
-                        <Trash2 className="h-4 w-4" />
-                    </Button>
+                        <Trash2 className="ir-delete-icon" />
+                    </button>
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </ScrollArea>
-      </CardContent>
-    </Card>
+        </div>
+      </div>
+    </div>
   );
 };
 

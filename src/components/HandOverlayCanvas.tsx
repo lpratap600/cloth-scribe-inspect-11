@@ -44,7 +44,7 @@ const HandOverlayCanvas = React.forwardRef<HTMLCanvasElement, HandOverlayCanvasP
   return (
     <canvas
       ref={internalCanvasRef}
-      className="absolute top-0 left-0 w-full h-full -scale-x-100"
+      className="hoc-canvas"
       width="1280"
       height="720"
     />

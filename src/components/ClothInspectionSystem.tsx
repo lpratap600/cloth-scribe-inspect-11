@@ -159,27 +159,27 @@ const ClothInspectionSystem = () => {
   };
 
   return (
-    <div className="bg-gray-900 text-white min-h-screen flex flex-col p-4 font-sans">
-      <header className="text-center mb-4">
-        <h1 className="text-3xl font-bold text-teal-400">Smart Cloth Inspection System</h1>
-        <div className="text-gray-400 mt-4 max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-          <div className="flex items-center justify-center text-left gap-3 bg-ray-800 p-3 rounded-lg">
-            <MousePointer2 className="h-6 w-6 text-teal-400 flex-shrink-0" />
-            <p><span className="font-bold text-white">Circle Defect:</span><br />Use one index finger to draw a circle.</p>
+    <div className="cis-container">
+      <header className="cis-header">
+        <h1 className="cis-title">Smart Cloth Inspection System</h1>
+        <div className="cis-instructions">
+          <div className="cis-instruction-item">
+            <MousePointer2 className="cis-instruction-icon" />
+            <p><span className="cis-instruction-text">Circle Defect:</span><br />Use one index finger to draw a circle.</p>
           </div>
-          <div className="flex items-center justify-center text-left gap-3 bg-gray-800 p-3 rounded-lg">
-            <ThumbsUp className="h-6 w-6 text-teal-400 flex-shrink-0" />
-            <p><span className="font-bold text-white">Take Photo:</span><br />Hold thumbs-up with both hands for 2s.</p>
+          <div className="cis-instruction-item">
+            <ThumbsUp className="cis-instruction-icon" />
+            <p><span className="cis-instruction-text">Take Photo:</span><br />Hold thumbs-up with both hands for 2s.</p>
           </div>
-          <div className="flex items-center justify-center text-left gap-3 bg-gray-800 p-3 rounded-lg">
-            <ThumbsDown className="h-6 w-6 text-teal-400 flex-shrink-0" />
-            <p><span className="font-bold text-white">Clear Canvas:</span><br />Hold thumbs-down with both hands for 1s.</p>
+          <div className="cis-instruction-item">
+            <ThumbsDown className="cis-instruction-icon" />
+            <p><span className="cis-instruction-text">Clear Canvas:</span><br />Hold thumbs-down with both hands for 1s.</p>
           </div>
         </div>
       </header>
-      <div className="flex-grow flex flex-col md:flex-row gap-4">
-        <div className="flex-1 flex flex-col gap-4">
-          <div className="relative aspect-video bg-black rounded-lg shadow-lg overflow-hidden">
+      <div className="cis-main-content">
+        <div className="cis-left-section">
+          <div className="cis-camera-container">
             <CameraFeed
               ref={cameraFeedRef}
               onCircleDetected={handleCircleDetected}
@@ -189,14 +189,14 @@ const ClothInspectionSystem = () => {
               isBusy={countdown !== null}
             />
             {countdown !== null && countdown > 0 && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
-                <span className="text-9xl font-bold text-white drop-shadow-lg">{countdown}</span>
+              <div className="cis-countdown-overlay">
+                <span className="cis-countdown-text">{countdown}</span>
               </div>
             )}
           </div>
           <StatusPanel status={status} onReset={handleReset} />
         </div>
-        <div className="w-full md:w-96">
+        <div className="cis-right-section">
           <InspectionResults
             capturedImages={capturedImages}
             onImageSelect={handleImageSelect}
@@ -207,11 +207,11 @@ const ClothInspectionSystem = () => {
 
       {selectedImage && (
         <Dialog open={!!selectedImage} onOpenChange={(isOpen) => !isOpen && setSelectedImage(null)}>
-          <DialogContent className="max-w-4xl bg-gray-800 border-gray-700 text-white">
+          <DialogContent className="cis-dialog-content">
             <DialogHeader>
-              <DialogTitle className="text-teal-400">Image Preview</DialogTitle>
+              <DialogTitle className="cis-dialog-title">Image Preview</DialogTitle>
             </DialogHeader>
-            <img src={selectedImage.src} alt="Full screen inspection" className="max-w-full max-h-[80vh] mx-auto rounded-lg mt-4" />
+            <img src={selectedImage.src} alt="Full screen inspection" className="cis-dialog-image" />
           </DialogContent>
         </Dialog>
       )}

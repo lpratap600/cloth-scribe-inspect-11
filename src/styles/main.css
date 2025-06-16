@@ -1,0 +1,9 @@
+
+/* Main CSS file - imports all component styles */
+@import './components/cloth-inspection-system.css';
+@import './components/camera-feed.css';
+@import './components/hand-overlay-canvas.css';
+@import './components/inspection-results.css';
+@import './components/status-panel.css';
+@import './base/reset.css';
+@import './base/variables.css';

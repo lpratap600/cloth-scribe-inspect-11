@@ -1,0 +1,140 @@
+
+/* Cloth Inspection System Component Styles */
+.cis-container {
+  background-color: var(--color-gray-900);
+  color: var(--color-white);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: var(--spacing-4);
+  font-family: sans-serif;
+}
+
+.cis-header {
+  text-align: center;
+  margin-bottom: var(--spacing-4);
+}
+
+.cis-title {
+  font-size: 1.875rem;
+  font-weight: bold;
+  color: var(--color-teal-400);
+}
+
+.cis-instructions {
+  color: var(--color-gray-400);
+  margin-top: var(--spacing-4);
+  max-width: 64rem;
+  margin-left: auto;
+  margin-right: auto;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--spacing-4);
+  font-size: 0.875rem;
+}
+
+@media (min-width: 768px) {
+  .cis-instructions {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.cis-instruction-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: left;
+  gap: var(--spacing-3);
+  background-color: var(--color-gray-800);
+  padding: var(--spacing-3);
+  border-radius: var(--radius-lg);
+}
+
+.cis-instruction-icon {
+  height: var(--spacing-6);
+  width: var(--spacing-6);
+  color: var(--color-teal-400);
+  flex-shrink: 0;
+}
+
+.cis-instruction-text {
+  font-weight: bold;
+  color: var(--color-white);
+}
+
+.cis-main-content {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+@media (min-width: 768px) {
+  .cis-main-content {
+    flex-direction: row;
+  }
+}
+
+.cis-left-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+.cis-camera-container {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background-color: var(--color-black);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.cis-countdown-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.cis-countdown-text {
+  font-size: 6rem;
+  font-weight: bold;
+  color: var(--color-white);
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.7));
+}
+
+.cis-right-section {
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .cis-right-section {
+    width: var(--spacing-96);
+  }
+}
+
+.cis-dialog-content {
+  max-width: 64rem;
+  background-color: var(--color-gray-800);
+  border: 1px solid var(--color-gray-700);
+  color: var(--color-white);
+}
+
+.cis-dialog-title {
+  color: var(--color-teal-400);
+}
+
+.cis-dialog-image {
+  max-width: 100%;
+  max-height: 80vh;
+  margin: 0 auto;
+  border-radius: var(--radius-lg);
+  margin-top: var(--spacing-4);
+}

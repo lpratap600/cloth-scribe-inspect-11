@@ -1,7 +1,5 @@
 
 import React from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 
 interface StatusPanelProps {
   status: string;
@@ -10,12 +8,12 @@ interface StatusPanelProps {
 
 const StatusPanel = ({ status, onReset }: StatusPanelProps) => {
   return (
-    <Card className="bg-gray-800 border-gray-700">
-      <CardContent className="p-4 flex items-center justify-between">
-        <p className="text-lg text-gray-300">{status}</p>
-        <Button onClick={onReset} variant="destructive">Reset Session</Button>
-      </CardContent>
-    </Card>
+    <div className="sp-container">
+      <div className="sp-content">
+        <p className="sp-status-text">{status}</p>
+        <button onClick={onReset} className="sp-reset-button">Reset Session</button>
+      </div>
+    </div>
   );
 };
 
