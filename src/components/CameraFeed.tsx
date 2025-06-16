@@ -1,5 +1,5 @@
 
-import React, { useRef, useImperativeHandle, forwardRef } from 'react';
+import React, { useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
 import { useHandTracking } from '@/hooks/useHandTracking';
 import HandOverlayCanvas from './HandOverlayCanvas';
 import { useGestureDetection } from '@/hooks/useGestureDetection';
@@ -18,10 +18,21 @@ const CameraFeed = forwardRef<{
   captureFrame: () => string | null;
   clearCanvas: () => void;
 }, CameraFeedProps>(({ onCircleDetected, isDetecting, onPhotoCaptureGesture, onClearGesture, isBusy }, ref) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [handResults, setHandResults] = React.useState<HandResults | null>(null);
+  const [isVideoReady, setIsVideoReady] = React.useState(false);
 
-  const { videoRef, isLoading, error } = useHandTracking({
+  // Set video ready when the video element is mounted
+  useEffect(() => {
+    if (videoRef.current) {
+      console.log('✅ Video element is ready');
+      setIsVideoReady(true);
+    }
+  }, []);
+
+  const { isLoading, error } = useHandTracking({
+    videoRef: isVideoReady ? videoRef : { current: null },
     onResults: (results: HandResults) => {
       setHandResults(results);
     }
@@ -88,7 +99,7 @@ const CameraFeed = forwardRef<{
     );
   }
 
-  if (isLoading) {
+  if (isLoading || !isVideoReady) {
     return (
       <div className="cf-container">
         <div className="cf-loading-container">
@@ -104,7 +115,7 @@ const CameraFeed = forwardRef<{
               margin: '20px auto'
             }}></div>
             <p className="cf-loading-text" style={{ fontSize: '14px', color: '#888' }}>
-              Check console (F12) for detailed logs
+              {!isVideoReady ? 'Setting up video element...' : 'Connecting to camera...'}
             </p>
           </div>
         </div>

@@ -4,11 +4,11 @@ import { Hands, HAND_CONNECTIONS } from '@mediapipe/hands';
 import type { Results as HandResults } from '@mediapipe/hands';
 
 interface UseHandTrackingProps {
+  videoRef: React.RefObject<HTMLVideoElement>;
   onResults: (results: HandResults) => void;
 }
 
-export const useHandTracking = ({ onResults }: UseHandTrackingProps) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
+export const useHandTracking = ({ videoRef, onResults }: UseHandTrackingProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const onResultsRef = useRef(onResults);
@@ -18,6 +18,12 @@ export const useHandTracking = ({ onResults }: UseHandTrackingProps) => {
   onResultsRef.current = onResults;
 
   useEffect(() => {
+    // Don't start if video ref is not available
+    if (!videoRef.current) {
+      console.log('⏳ Waiting for video ref to be available...');
+      return;
+    }
+
     // Prevent multiple initializations
     if (initializationRef.current) {
       console.log('🔄 Initialization already in progress, skipping...');
@@ -229,7 +235,7 @@ export const useHandTracking = ({ onResults }: UseHandTrackingProps) => {
       clearTimeout(initTimer);
       cleanup();
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [videoRef]); // Add videoRef as dependency
 
   // Cleanup on unmount
   useEffect(() => {
@@ -240,5 +246,5 @@ export const useHandTracking = ({ onResults }: UseHandTrackingProps) => {
     };
   }, []);
 
-  return { videoRef, isLoading, error };
+  return { isLoading, error };
 };
